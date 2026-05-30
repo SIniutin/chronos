@@ -341,29 +341,36 @@ class _Achievement extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: earned ? 1.0 : 0.4,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: earned ? AppTheme.accent.withValues(alpha: 0.12) : AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: earned ? AppTheme.accent.withValues(alpha: 0.4) : AppTheme.cardBg,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: GoogleFonts.lato(
-                color: earned ? AppTheme.textPrimary : AppTheme.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 180),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: earned ? AppTheme.accent.withValues(alpha: 0.12) : AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: earned ? AppTheme.accent.withValues(alpha: 0.4) : AppTheme.cardBg,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.lato(
+                    color: earned ? AppTheme.textPrimary : AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

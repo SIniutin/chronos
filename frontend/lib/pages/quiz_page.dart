@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../api/api_client.dart';
 import '../api/content_api.dart';
@@ -36,6 +37,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   String? _backendError;
   String? _selectedOptionId;
   final Set<String> _selectedOptionIds = {};
+  final List<String> _orderedOptionIds = [];
+  final Map<String, String> _pairSelections = {};
 
   List<QuizQuestion> get _questions =>
       widget.questions == null || widget.questions!.isEmpty ? AppData.quizQuestions : widget.questions!;
@@ -103,7 +106,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
         _session = session;
         _current = current;
         _backendBusy = false;
-        _resetBackendAnswerState();
+        _resetBackendAnswerState(current.challenge);
       });
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -174,7 +177,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
         _current = current;
         _currentQuestion++;
         _backendBusy = false;
-        _resetBackendAnswerState();
+        _resetBackendAnswerState(current.challenge);
       });
     } on ApiException catch (error) {
       if (error.statusCode == 404) {
@@ -225,10 +228,14 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     }
   }
 
-  void _resetBackendAnswerState() {
+  void _resetBackendAnswerState([ChallengeDto? challenge]) {
     _backendAnswer = null;
     _selectedOptionId = null;
     _selectedOptionIds.clear();
+    _orderedOptionIds
+      ..clear()
+      ..addAll(_options(challenge?.options).asMap().entries.map((entry) => _optionId(entry.value, entry.key)));
+    _pairSelections.clear();
     _fillController.clear();
   }
 
@@ -454,6 +461,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     final challenge = current?.challenge;
     final total = _backendResult?.total ?? 10;
     final progress = total <= 0 ? 0.0 : ((_currentQuestion + 1) / total).clamp(0.0, 1.0).toDouble();
+    final canSubmit = challenge != null && _canSubmitBackendAnswer(challenge);
 
     return Scaffold(
       backgroundColor: AppTheme.primary,
@@ -489,39 +497,50 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                   : challenge == null
                       ? _ErrorState(message: 'В уроке пока нет заданий', onRetry: _startBackendSession)
                       : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                backgroundColor: AppTheme.surface,
-                                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accent),
-                                minHeight: 8,
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: progress,
+                                        backgroundColor: AppTheme.surface,
+                                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accent),
+                                        minHeight: 8,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    _BackendChallengeCard(challenge: challenge),
+                                    const SizedBox(height: 18),
+                                    _buildBackendAnswerInput(challenge),
+                                    if (_backendError != null) ...[
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        _backendError!,
+                                        style: GoogleFonts.lato(color: AppTheme.wrong, fontSize: 13),
+                                      ),
+                                    ],
+                                    if (_backendAnswer != null) ...[
+                                      const SizedBox(height: 14),
+                                      _BackendFeedback(result: _backendAnswer!),
+                                    ],
+                                  ],
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 24),
-                            _BackendChallengeCard(challenge: challenge),
-                            const SizedBox(height: 18),
-                            Expanded(child: _buildBackendAnswerInput(challenge)),
-                            if (_backendError != null) ...[
-                              Text(
-                                _backendError!,
-                                style: GoogleFonts.lato(color: AppTheme.wrong, fontSize: 13),
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                            if (_backendAnswer != null) ...[
-                              _BackendFeedback(result: _backendAnswer!),
-                              const SizedBox(height: 12),
-                            ],
+                            const SizedBox(height: 14),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: _backendBusy
                                     ? null
                                     : _backendAnswer == null
-                                        ? _submitBackendAnswer
+                                        ? canSubmit
+                                            ? _submitBackendAnswer
+                                            : null
                                         : _nextBackendChallenge,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.accent,
@@ -564,6 +583,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           TextField(
             controller: _fillController,
             enabled: _backendAnswer == null,
+            onChanged: (_) => setState(() {}),
             style: GoogleFonts.lato(color: AppTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'Введите ответ',
@@ -580,49 +600,170 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       );
     }
 
-    final options = _options(challenge.options);
-    if (options.isEmpty) {
-      return Center(
-        child: Text(
-          'Это задание пока не поддержано в приложении.',
-          style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-      );
+    if (challenge.type == 'match_pairs' || challenge.type == 'match_image') {
+      return _buildMatchingInput(challenge);
     }
 
-    final multi = challenge.type == 'multiple_choice' || challenge.type == 'timeline';
-    return ListView.separated(
-      itemCount: options.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final option = options[index];
-        final id = _optionId(option, index);
-        final selected = multi ? _selectedOptionIds.contains(id) : _selectedOptionId == id;
-        return _AnswerOption(
-          text: _optionText(option),
-          index: index,
-          isSelected: selected,
-          isCorrect: false,
-          isAnswered: _backendAnswer != null,
-          showCorrectness: false,
-          onTap: () {
-            if (_backendAnswer != null) return;
-            setState(() {
-              if (multi) {
-                if (_selectedOptionIds.contains(id)) {
-                  _selectedOptionIds.remove(id);
-                } else {
-                  _selectedOptionIds.add(id);
-                }
-              } else {
-                _selectedOptionId = id;
-              }
-            });
-          },
-        );
-      },
+    if (challenge.type == 'timeline') {
+      return _buildTimelineInput(challenge);
+    }
+
+    final options = _options(challenge.options);
+    if (options.isEmpty) {
+      return _UnsupportedChallenge(message: 'У задания нет вариантов ответа.');
+    }
+
+    final multi = challenge.type == 'multiple_choice';
+    return Column(
+      children: [
+        for (final entry in options.asMap().entries) ...[
+          Builder(
+            builder: (context) {
+              final option = entry.value;
+              final id = _optionId(option, entry.key);
+              final selected = multi ? _selectedOptionIds.contains(id) : _selectedOptionId == id;
+              return _AnswerOption(
+                text: _optionText(option),
+                index: entry.key,
+                isSelected: selected,
+                isCorrect: false,
+                isAnswered: _backendAnswer != null,
+                showCorrectness: false,
+                onTap: () {
+                  if (_backendAnswer != null) return;
+                  setState(() {
+                    if (multi) {
+                      if (_selectedOptionIds.contains(id)) {
+                        _selectedOptionIds.remove(id);
+                      } else {
+                        _selectedOptionIds.add(id);
+                      }
+                    } else {
+                      _selectedOptionId = id;
+                    }
+                  });
+                },
+              );
+            },
+          ),
+          if (entry.key != options.length - 1) const SizedBox(height: 10),
+        ],
+      ],
     );
+  }
+
+  Widget _buildTimelineInput(ChallengeDto challenge) {
+    final options = _options(challenge.options);
+    if (options.isEmpty) {
+      return _UnsupportedChallenge(message: 'Для задания на порядок нет элементов.');
+    }
+    if (_orderedOptionIds.length != options.length) {
+      _orderedOptionIds
+        ..clear()
+        ..addAll(options.asMap().entries.map((entry) => _optionId(entry.value, entry.key)));
+    }
+    final byId = {
+      for (final entry in options.asMap().entries) _optionId(entry.value, entry.key): entry.value,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Расставь элементы в правильном порядке',
+          style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+        const SizedBox(height: 10),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _orderedOptionIds.length,
+          onReorder: _backendAnswer != null
+              ? (_, __) {}
+              : (oldIndex, newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) newIndex--;
+                    final id = _orderedOptionIds.removeAt(oldIndex);
+                    _orderedOptionIds.insert(newIndex, id);
+                  });
+                },
+          itemBuilder: (context, index) {
+            final id = _orderedOptionIds[index];
+            final option = byId[id];
+            return Padding(
+              key: ValueKey(id),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _AnswerOption(
+                text: _optionText(option),
+                index: index,
+                isSelected: true,
+                isCorrect: false,
+                isAnswered: _backendAnswer != null,
+                showCorrectness: false,
+                onTap: () {},
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMatchingInput(ChallengeDto challenge) {
+    final groups = _matchingOptions(challenge.options);
+    final left = groups.left;
+    final right = groups.right;
+    if (left.isEmpty || right.isEmpty) {
+      return _UnsupportedChallenge(message: 'Для задания на сопоставление не хватает пар.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Выбери соответствие для каждого пункта',
+          style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        for (final entry in left.asMap().entries) ...[
+          _MatchRow(
+            leftText: _optionText(entry.value),
+            value: _pairSelections[_optionId(entry.value, entry.key)],
+            rightOptions: right.asMap().entries
+                .map((rightEntry) => _MatchChoice(
+                      id: _optionId(rightEntry.value, rightEntry.key),
+                      text: _optionText(rightEntry.value),
+                    ))
+                .toList(),
+            enabled: _backendAnswer == null,
+            onChanged: (rightId) {
+              if (rightId == null) return;
+              setState(() => _pairSelections[_optionId(entry.value, entry.key)] = rightId);
+            },
+          ),
+          if (entry.key != left.length - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  bool _canSubmitBackendAnswer(ChallengeDto challenge) {
+    if (challenge.type == 'theory') return true;
+    if (challenge.type == 'fill_in_blank') return _fillController.text.trim().isNotEmpty;
+    if (challenge.type == 'multiple_choice') return _selectedOptionIds.isNotEmpty;
+    if (challenge.type == 'timeline') return _orderedOptionIds.isNotEmpty && _orderedOptionIds.length == _options(challenge.options).length;
+    if (challenge.type == 'match_pairs' || challenge.type == 'match_image') {
+      final groups = _matchingOptions(challenge.options);
+      return groups.left.isNotEmpty && _pairSelections.length == groups.left.length;
+    }
+    if (_isSingleAnswerType(challenge.type)) return _selectedOptionId != null;
+    return false;
+  }
+
+  bool _isSingleAnswerType(String type) {
+    return type == 'single_choice' ||
+        type == 'true_false' ||
+        type == 'image_question' ||
+        type == 'quote_question';
   }
 
   Object? _answerPayload(ChallengeDto challenge) {
@@ -636,7 +777,16 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       return _selectedOptionIds.toList();
     }
     if (challenge.type == 'timeline') {
-      return _selectedOptionIds.toList();
+      return _orderedOptionIds.toList();
+    }
+    if (challenge.type == 'match_pairs' || challenge.type == 'match_image') {
+      final left = _matchingOptions(challenge.options).left;
+      return left.asMap().entries
+          .map((entry) => {
+                'left_id': _optionId(entry.value, entry.key),
+                'right_id': _pairSelections[_optionId(entry.value, entry.key)],
+              })
+          .toList();
     }
     return _selectedOptionId;
   }
@@ -646,20 +796,30 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     return const [];
   }
 
+  _MatchingOptions _matchingOptions(dynamic raw) {
+    if (raw is Map) {
+      return _MatchingOptions(_options(raw['left']), _options(raw['right']));
+    }
+    return const _MatchingOptions([], []);
+  }
+
   String _optionId(dynamic option, int index) {
     if (option is Map && option['id'] != null) return option['id'].toString();
+    if (option is Map && option['value'] != null) return option['value'].toString();
     return index.toString();
   }
 
   String _optionText(dynamic option) {
     if (option is Map && option['text'] != null) return option['text'].toString();
+    if (option is Map && option['label'] != null) return option['label'].toString();
+    if (option is Map && option['value'] != null) return option['value'].toString();
     return option.toString();
   }
 
   Widget _buildResults(BuildContext context) {
     final total = _backendResult?.total ?? _questions.length;
     final score = _backendResult?.correct ?? _score;
-    final percent = _backendResult?.percent ?? (score / total * 100).round();
+    final percent = _backendResult?.percent ?? (total == 0 ? 0 : (score / total * 100).round());
     String emoji;
     String title;
     String subtitle;
@@ -802,7 +962,8 @@ class _BackendChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = challenge.type == 'fill_in_blank' ? _payloadText(challenge.payload) : challenge.body;
+    final body = challenge.type == 'fill_in_blank' ? _payloadText(challenge.payload) : _bodyText();
+    final imageUrl = _imageUrl(challenge.payload);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
@@ -822,6 +983,29 @@ class _BackendChallengeCard extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
+          if (imageUrl != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 180,
+                placeholder: (_, __) => Container(
+                  height: 180,
+                  color: AppTheme.cardBg,
+                  child: const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  height: 180,
+                  color: AppTheme.cardBg,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.broken_image_outlined, color: AppTheme.textSecondary),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             challenge.prompt,
@@ -855,6 +1039,26 @@ class _BackendChallengeCard extends StatelessWidget {
     return challenge.body;
   }
 
+  String _bodyText() {
+    if (challenge.body.trim().isNotEmpty) {
+      return challenge.body;
+    }
+    if (challenge.payload is Map) {
+      final payload = challenge.payload as Map;
+      if (payload['quote'] != null) return payload['quote'].toString();
+      if (payload['text'] != null) return payload['text'].toString();
+      if (payload['caption'] != null) return payload['caption'].toString();
+    }
+    return '';
+  }
+
+  String? _imageUrl(dynamic payload) {
+    if (payload is! Map) return null;
+    final raw = payload['image_url'] ?? payload['imageUrl'] ?? payload['image'] ?? payload['url'];
+    if (raw == null || raw.toString().trim().isEmpty) return null;
+    return raw.toString();
+  }
+
   String _typeLabel(String type) => switch (type) {
         'theory' => 'ТЕОРИЯ',
         'single_choice' => 'ОДИН ОТВЕТ',
@@ -862,8 +1066,120 @@ class _BackendChallengeCard extends StatelessWidget {
         'fill_in_blank' => 'ЗАПОЛНИ ПРОПУСК',
         'multiple_choice' => 'НЕСКОЛЬКО ОТВЕТОВ',
         'timeline' => 'ПОРЯДОК',
+        'match_pairs' => 'СОПОСТАВЛЕНИЕ',
+        'match_image' => 'СОПОСТАВЬ ИЗОБРАЖЕНИЯ',
+        'image_question' => 'ВОПРОС ПО ИЗОБРАЖЕНИЮ',
+        'quote_question' => 'ВОПРОС ПО ЦИТАТЕ',
         _ => 'ЗАДАНИЕ',
       };
+}
+
+class _MatchingOptions {
+  final List<dynamic> left;
+  final List<dynamic> right;
+
+  const _MatchingOptions(this.left, this.right);
+}
+
+class _MatchChoice {
+  final String id;
+  final String text;
+
+  const _MatchChoice({required this.id, required this.text});
+}
+
+class _MatchRow extends StatelessWidget {
+  final String leftText;
+  final String? value;
+  final List<_MatchChoice> rightOptions;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+
+  const _MatchRow({
+    required this.leftText,
+    required this.value,
+    required this.rightOptions,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            leftText,
+            style: GoogleFonts.lato(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            value: value,
+            isExpanded: true,
+            dropdownColor: AppTheme.surface,
+            decoration: InputDecoration(
+              labelText: 'Соответствие',
+              labelStyle: GoogleFonts.lato(color: AppTheme.textSecondary),
+              filled: true,
+              fillColor: AppTheme.primary.withOpacity(0.35),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: AppTheme.cardBg),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppTheme.accent),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            items: rightOptions
+                .map(
+                  (choice) => DropdownMenuItem(
+                    value: choice.id,
+                    child: Text(
+                      choice.text,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.lato(color: AppTheme.textPrimary),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: enabled ? onChanged : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnsupportedChallenge extends StatelessWidget {
+  final String message;
+
+  const _UnsupportedChallenge({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.wrong.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.wrong.withOpacity(0.35)),
+      ),
+      child: Text(
+        message,
+        style: GoogleFonts.lato(color: AppTheme.wrong, fontSize: 14, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 }
 
 class _BackendFeedback extends StatelessWidget {

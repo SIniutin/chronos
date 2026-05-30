@@ -439,21 +439,49 @@ class _EntityTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final actions = <PopupMenuEntry<String>>[
+      if (onEdit != null) const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
+      if (onPublish != null) const PopupMenuItem(value: 'publish', child: Text('Опубликовать')),
+      if (onArchive != null) const PopupMenuItem(value: 'archive', child: Text('В архив')),
+    ];
     return Card(
       color: selected ? AppTheme.cardBg : AppTheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: selected ? AppTheme.accent : AppTheme.cardBg)),
       child: ListTile(
         onTap: onTap,
-        title: Text(title.isEmpty ? 'Без названия' : title, style: GoogleFonts.lato(color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
-        subtitle: Text('$subtitle · ${_statusLabel(status)}', style: GoogleFonts.lato(color: AppTheme.textSecondary)),
-        trailing: Wrap(
-          spacing: 2,
-          children: [
-            if (onEdit != null) IconButton(tooltip: 'Редактировать', onPressed: onEdit, icon: const Icon(Icons.edit_outlined, color: AppTheme.accent)),
-            if (onPublish != null) IconButton(tooltip: 'Опубликовать', onPressed: onPublish, icon: const Icon(Icons.verified_outlined, color: AppTheme.success)),
-            if (onArchive != null) IconButton(tooltip: 'В архив', onPressed: onArchive, icon: const Icon(Icons.archive_outlined, color: AppTheme.wrong)),
-          ],
+        title: Text(
+          title.isEmpty ? 'Без названия' : title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.lato(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
         ),
+        subtitle: Text(
+          '$subtitle · ${_statusLabel(status)}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.lato(color: AppTheme.textSecondary),
+        ),
+        trailing: actions.isEmpty
+            ? null
+            : PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: AppTheme.textSecondary),
+                color: AppTheme.surface,
+                tooltip: 'Действия',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      onEdit?.call();
+                      break;
+                    case 'publish':
+                      onPublish?.call();
+                      break;
+                    case 'archive':
+                      onArchive?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (_) => actions,
+              ),
       ),
     );
   }

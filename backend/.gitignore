@@ -1,0 +1,39 @@
+# Binaries
+/history-app
+/history-migrate
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test and coverage artifacts
+*.test
+*.out
+coverage.*
+
+# Go workspace/vendor artifacts
+/vendor/
+/go.work
+/go.work.sum
+
+# Local env/config
+.env
+.env.*
+!.env.example
+
+# Logs and temp files
+*.log
+tmp/
+temp/
+
+# IDE/editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+PLAN.md

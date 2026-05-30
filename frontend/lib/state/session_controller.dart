@@ -1,21 +1,31 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../theme/app_theme.dart';
 
 class SessionController extends ChangeNotifier {
+  static const _accessTokenKey = 'access_token';
+  static const _refreshTokenKey = 'refresh_token';
+
   final ApiClient client;
+  final FlutterSecureStorage storage;
   late final AuthApi authApi;
 
   String? accessToken;
   String? refreshToken;
   AppUser? currentUser;
   bool isBusy = false;
+  bool isRestoring = false;
   ThemeMode themeMode = ThemeMode.dark;
 
-  SessionController({ApiClient? apiClient}) : client = apiClient ?? ApiClient() {
+  SessionController({
+    ApiClient? apiClient,
+    FlutterSecureStorage? secureStorage,
+  })  : client = apiClient ?? ApiClient(),
+        storage = secureStorage ?? const FlutterSecureStorage() {
     authApi = AuthApi(client);
     client.accessTokenReader = () => accessToken;
     client.onUnauthorized = refresh;
@@ -35,6 +45,7 @@ class SessionController extends ChangeNotifier {
       final pair = await authApi.login(identity: identity, password: password);
       accessToken = pair.accessToken;
       refreshToken = pair.refreshToken;
+      await _persistTokens(pair);
       currentUser = await authApi.me();
     });
   }
@@ -60,15 +71,45 @@ class SessionController extends ChangeNotifier {
       final pair = await authApi.refresh(token);
       accessToken = pair.accessToken;
       refreshToken = pair.refreshToken;
+      await _persistTokens(pair);
       currentUser = await authApi.me();
       notifyListeners();
       return true;
     } catch (_) {
-      accessToken = null;
-      refreshToken = null;
-      currentUser = null;
+      await _clearSession();
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> restoreSession() async {
+    if (isRestoring) return;
+    isRestoring = true;
+    notifyListeners();
+    try {
+      accessToken = await storage.read(key: _accessTokenKey);
+      refreshToken = await storage.read(key: _refreshTokenKey);
+      if (accessToken == null || accessToken!.isEmpty) {
+        accessToken = null;
+        if (refreshToken != null && refreshToken!.isNotEmpty) {
+          await refresh();
+        }
+        return;
+      }
+      try {
+        currentUser = await authApi.me();
+      } on ApiException catch (error) {
+        if (error.statusCode == 401) {
+          await refresh();
+        } else {
+          await _clearSession();
+        }
+      } catch (_) {
+        await _clearSession();
+      }
+    } finally {
+      isRestoring = false;
+      notifyListeners();
     }
   }
 
@@ -79,11 +120,22 @@ class SessionController extends ChangeNotifier {
         await authApi.logout(token);
       }
     } finally {
-      accessToken = null;
-      refreshToken = null;
-      currentUser = null;
+      await _clearSession();
       notifyListeners();
     }
+  }
+
+  Future<void> _persistTokens(TokenPair pair) async {
+    await storage.write(key: _accessTokenKey, value: pair.accessToken);
+    await storage.write(key: _refreshTokenKey, value: pair.refreshToken);
+  }
+
+  Future<void> _clearSession() async {
+    accessToken = null;
+    refreshToken = null;
+    currentUser = null;
+    await storage.delete(key: _accessTokenKey);
+    await storage.delete(key: _refreshTokenKey);
   }
 
   Future<void> _busy(Future<void> Function() action) async {

@@ -31,6 +31,7 @@ class _HistoryAppState extends State<HistoryApp> {
   void initState() {
     super.initState();
     _session.addListener(_onSessionChanged);
+    _session.restoreSession();
   }
 
   void _onSessionChanged() {
@@ -85,6 +86,12 @@ class _AppFlowState extends State<AppFlow> {
   @override
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
+    if (session.isRestoring) {
+      return const Scaffold(
+        backgroundColor: AppTheme.primary,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+      );
+    }
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
       child: switch (_step) {

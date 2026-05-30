@@ -1,0 +1,102 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs, temp files, and reports
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/build/
+**/coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/flutter_export_environment.sh
+app.*.symbols
+app.*.map.json
+
+# Flutter generated desktop files
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+**/windows/flutter/ephemeral/
+
+# Android / Gradle
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/**/.cxx/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/gradle-app.setting
+**/key.properties
+**/*.keystore
+**/*.jks
+
+# iOS / macOS
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Pods/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Go
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+vendor/
+go.work
+go.work.sum
+
+# Backend binaries
+backend/history-app
+backend/history-migrate
+backend/history-seed
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+
+# Local project notes
+PLAN.md

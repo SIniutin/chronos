@@ -100,3 +100,9 @@ backend/history-seed
 
 # Local project notes
 PLAN.md
+
+Screenshot*
+*.pdf
+*.json
+*.csv
+*/*.xlsx

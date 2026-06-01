@@ -3,11 +3,25 @@ package domain
 import "testing"
 
 func TestChallengeTypeValidation(t *testing.T) {
-	if _, err := NewChallengeType("theory"); err != nil {
-		t.Fatalf("theory should be valid: %v", err)
+	validTypes := []string{
+		"theory",
+		"single_choice",
+		"multiple_choice",
+		"timeline",
+		"match_pairs",
+		"image_question",
+		"match_image",
+		"match_photos",
+		"quote_question",
+		"true_false",
+		"fill_in_blank",
+		"map_point",
+		"map_area",
 	}
-	if _, err := NewChallengeType("fill_in_blank"); err != nil {
-		t.Fatalf("fill_in_blank should be valid: %v", err)
+	for _, typ := range validTypes {
+		if _, err := NewChallengeType(typ); err != nil {
+			t.Fatalf("%s should be valid: %v", typ, err)
+		}
 	}
 	if _, err := NewChallengeType("single_quiz"); err == nil {
 		t.Fatalf("single_quiz should be invalid")

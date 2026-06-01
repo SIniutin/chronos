@@ -163,15 +163,11 @@ func applySkillSession(progress *domain.SkillProgress, input domain.SessionProgr
 	progress.Mastery = progress.Mastery*oldMasteryWeight + accuracy*sessionAccuracyWeight
 	progress.CorrectAnswers += input.CorrectAnswers
 	progress.WrongAnswers += input.TotalAnswers - input.CorrectAnswers
-	if accuracy >= levelUpAccuracy && progress.Level < maxSkillLevel {
+	if progress.Level < maxSkillLevel {
 		progress.Level++
 	}
-	progress.Status = domain.ProgressStatusInProgress
-	if progress.Level >= maxSkillLevel {
-		progress.Level = maxSkillLevel
-		completedAt := input.CompletedAt
-		progress.Status = domain.ProgressStatusCompleted
-		progress.CompletedAt = &completedAt
-	}
+	completedAt := input.CompletedAt
+	progress.Status = domain.ProgressStatusCompleted
+	progress.CompletedAt = &completedAt
 	progress.UpdatedAt = input.CompletedAt
 }

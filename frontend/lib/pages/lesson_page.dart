@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
+import '../widgets/responsive_text.dart';
 import 'quiz_page.dart';
 
 class LessonPage extends StatefulWidget {
@@ -98,14 +99,14 @@ class _LessonPageState extends State<LessonPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Meta info
-                  Row(
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
                     children: [
                       _MetaChip(icon: Icons.timer_outlined, label: lesson.duration, color: AppTheme.accent),
-                      const SizedBox(width: 10),
                       _MetaChip(icon: Icons.signal_cellular_alt, label: lesson.difficulty, color: const Color(0xFF5C7AEA)),
-                      const SizedBox(width: 10),
                       if (lesson.isCompleted)
-                        _MetaChip(icon: Icons.check_circle, label: 'Пройдено', color: AppTheme.correct),
+                        const _MetaChip(icon: Icons.check_circle, label: 'Пройдено', color: AppTheme.correct),
                     ],
                   ),
 
@@ -170,15 +171,20 @@ class _LessonPageState extends State<LessonPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => QuizPage(
-                            questions: lesson.quizQuestions,
-                            skillId: lesson.backendSkillId,
+                      onPressed: () async {
+                        final completed = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => QuizPage(
+                              questions: lesson.quizQuestions,
+                              skillId: lesson.backendSkillId,
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                        if (completed == true && context.mounted) {
+                          Navigator.pop(context, true);
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accent,
                         foregroundColor: AppTheme.onAccent,
@@ -187,9 +193,9 @@ class _LessonPageState extends State<LessonPage> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 8,
-                        shadowColor: AppTheme.accent.withOpacity(0.4),
+                        shadowColor: AppTheme.accent.withValues(alpha: 0.4),
                       ),
-                      child: Text(
+                      child: ButtonLabel(
                         'Пройти квиз по теме →',
                         style: GoogleFonts.lato(
                           fontSize: 16,
@@ -241,20 +247,25 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.4), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 14),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: GoogleFonts.lato(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 180),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 4),
+            Flexible(
+              child: ResponsiveText(
+                label,
+                style: GoogleFonts.lato(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -282,7 +293,7 @@ class _FactCardState extends State<_FactCard> {
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: _expanded ? AppTheme.accent.withOpacity(0.5) : AppTheme.cardBg,
+            color: _expanded ? AppTheme.accent.withValues(alpha: 0.5) : AppTheme.cardBg,
           ),
         ),
         child: Row(
@@ -291,7 +302,7 @@ class _FactCardState extends State<_FactCard> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AppTheme.accent.withOpacity(0.2),
+                color: AppTheme.accent.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Center(

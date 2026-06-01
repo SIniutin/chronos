@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import 'api_config.dart';
 
@@ -42,6 +44,48 @@ class ApiClient {
     return _send('PATCH', path, body: body, auth: auth);
   }
 
+  Future<dynamic> uploadBytes(
+    String path, {
+    required String fieldName,
+    required String filename,
+    required Uint8List bytes,
+    required String contentType,
+    bool auth = false,
+    bool retried = false,
+  }) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Accept'] = 'application/json'
+      ..files.add(http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: filename,
+        contentType: _mediaType(contentType),
+      ));
+    final token = accessTokenReader?.call();
+    if (auth && token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 401 && auth && !retried && onUnauthorized != null) {
+      final refreshed = await onUnauthorized!.call();
+      if (refreshed) {
+        return uploadBytes(
+          path,
+          fieldName: fieldName,
+          filename: filename,
+          bytes: bytes,
+          contentType: contentType,
+          auth: auth,
+          retried: true,
+        );
+      }
+    }
+    return _decodeResponse(response);
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {
@@ -74,6 +118,10 @@ class ApiClient {
       }
     }
 
+    return _decodeResponse(response);
+  }
+
+  dynamic _decodeResponse(http.Response response) {
     if (response.statusCode == 204) {
       return null;
     }
@@ -90,3 +138,10 @@ class ApiClient {
   }
 }
 
+MediaType _mediaType(String raw) {
+  final parts = raw.split('/');
+  if (parts.length == 2) {
+    return MediaType(parts[0], parts[1]);
+  }
+  return MediaType('application', 'octet-stream');
+}

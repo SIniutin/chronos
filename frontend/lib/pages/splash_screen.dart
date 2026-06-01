@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/responsive_text.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onDone;
@@ -46,62 +47,69 @@ class _SplashScreenState extends State<SplashScreen>
           opacity: _fadeIn,
           child: ScaleTransition(
             scale: _scaleIn,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.accent, Color(0xFFFF6B35)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accent.withOpacity(0.5),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 340 || constraints.maxHeight < 480;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: compact ? 84.0 : 100.0,
+                      height: compact ? 84.0 : 100.0,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.accent, Color(0xFFFF6B35)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(compact ? 22 : 28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.accent.withValues(alpha: 0.5),
+                            blurRadius: 30,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text('📜', style: TextStyle(fontSize: 50)),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'История',
-                  style: GoogleFonts.playfairDisplay(
-                    color: AppTheme.textPrimary,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Путешествие сквозь время',
-                  style: GoogleFonts.lato(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppTheme.accent.withOpacity(0.6),
+                      child: Center(
+                        child: Text('📜', style: TextStyle(fontSize: compact ? 42.0 : 50.0)),
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                    SizedBox(height: compact ? 18 : 24),
+                    ResponsiveText(
+                      'История',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.playfairDisplay(
+                        color: AppTheme.textPrimary,
+                        fontSize: compact ? 30.0 : 36.0,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ResponsiveText(
+                      'Путешествие сквозь время',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lato(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    SizedBox(height: compact ? 34 : 48),
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.accent.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),

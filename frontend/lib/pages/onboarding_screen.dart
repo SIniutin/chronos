@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/responsive_text.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onDone;
@@ -118,9 +119,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 8,
-                        shadowColor: _pages[_current].color.withOpacity(0.4),
+                        shadowColor: _pages[_current].color.withValues(alpha: 0.4),
                       ),
-                      child: Text(
+                      child: ButtonLabel(
                         _current < _pages.length - 1 ? 'Далее →' : 'Начать учиться! 🚀',
                         style: GoogleFonts.lato(
                           fontSize: 16,
@@ -159,54 +160,61 @@ class _OnboardPageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Big emoji in glow circle
-          Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: page.color.withOpacity(0.12),
-              border: Border.all(color: page.color.withOpacity(0.3), width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: page.color.withOpacity(0.2),
-                  blurRadius: 40,
-                  spreadRadius: 10,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360 || constraints.maxHeight < 560;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: compact ? 128.0 : 160.0,
+                  height: compact ? 128.0 : 160.0,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: page.color.withValues(alpha: 0.12),
+                    border: Border.all(color: page.color.withValues(alpha: 0.3), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: page.color.withValues(alpha: 0.2),
+                        blurRadius: compact ? 28 : 40,
+                        spreadRadius: compact ? 6 : 10,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(page.emoji, style: TextStyle(fontSize: compact ? 58.0 : 72.0)),
+                  ),
+                ),
+                SizedBox(height: compact ? 28 : 40),
+                ResponsiveText(
+                  page.title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.playfairDisplay(
+                    color: AppTheme.textPrimary,
+                    fontSize: compact ? 28.0 : 32.0,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ResponsiveText(
+                  page.subtitle,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lato(
+                    color: AppTheme.textSecondary,
+                    fontSize: compact ? 15.0 : 16.0,
+                    height: 1.6,
+                  ),
                 ),
               ],
             ),
-            child: Center(
-              child: Text(page.emoji, style: const TextStyle(fontSize: 72)),
-            ),
           ),
-          const SizedBox(height: 40),
-          Text(
-            page.title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.playfairDisplay(
-              color: AppTheme.textPrimary,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            page.subtitle,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.lato(
-              color: AppTheme.textSecondary,
-              fontSize: 16,
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

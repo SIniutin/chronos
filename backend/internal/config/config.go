@@ -12,6 +12,7 @@ type Config struct {
 	App            AppConfig
 	DB             DBConfig
 	Auth           AuthConfig
+	S3             S3Config
 	Log            LogConfig
 	CORS           CORSConfig
 	BootstrapAdmin BootstrapAdminConfig
@@ -50,6 +51,15 @@ type CORSConfig struct {
 	AllowedOrigins []string
 }
 
+type S3Config struct {
+	Endpoint      string
+	PublicBaseURL string
+	AccessKey     string
+	SecretKey     string
+	Bucket        string
+	UseSSL        bool
+}
+
 type BootstrapAdminConfig struct {
 	Email    string
 	Login    string
@@ -73,6 +83,12 @@ func Load() (Config, error) {
 	v.SetDefault("AUTH_REFRESH_TTL", "168h")
 	v.SetDefault("AUTH_ISSUER", "history-app-backend")
 	v.SetDefault("AUTH_AUDIENCE", "history-app-users")
+	v.SetDefault("S3_ENDPOINT", "localhost:9000")
+	v.SetDefault("S3_PUBLIC_BASE_URL", "http://localhost:9000/history-media")
+	v.SetDefault("S3_ACCESS_KEY", "minioadmin")
+	v.SetDefault("S3_SECRET_KEY", "minioadmin")
+	v.SetDefault("S3_BUCKET", "history-media")
+	v.SetDefault("S3_USE_SSL", false)
 	v.SetDefault("LOG_LEVEL", "info")
 	v.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:*,http://127.0.0.1:*")
 
@@ -107,6 +123,14 @@ func Load() (Config, error) {
 			RefreshTTL:    refreshTTL,
 			Issuer:        v.GetString("AUTH_ISSUER"),
 			Audience:      v.GetString("AUTH_AUDIENCE"),
+		},
+		S3: S3Config{
+			Endpoint:      v.GetString("S3_ENDPOINT"),
+			PublicBaseURL: strings.TrimRight(v.GetString("S3_PUBLIC_BASE_URL"), "/"),
+			AccessKey:     v.GetString("S3_ACCESS_KEY"),
+			SecretKey:     v.GetString("S3_SECRET_KEY"),
+			Bucket:        v.GetString("S3_BUCKET"),
+			UseSSL:        v.GetBool("S3_USE_SSL"),
 		},
 		Log: LogConfig{
 			Level: v.GetString("LOG_LEVEL"),

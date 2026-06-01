@@ -12,6 +12,7 @@ type SessionRepository interface {
 
 type SessionChallengeRepository interface {
 	CreateMany(ctx context.Context, challenges []LessonSessionChallenge) error
+	Append(ctx context.Context, challenge LessonSessionChallenge) error
 	GetCurrentPending(ctx context.Context, sessionID LessonSessionID) (*LessonSessionChallenge, error)
 	MarkAnswered(ctx context.Context, id LessonSessionChallengeID) error
 	ListBySession(ctx context.Context, sessionID LessonSessionID) ([]LessonSessionChallenge, error)

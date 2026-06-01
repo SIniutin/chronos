@@ -27,20 +27,20 @@ func TestApplySessionResultCreatesProgressAndUpdatesMastery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply failed: %v", err)
 	}
-	if result.NewSkillLevel != 0 {
-		t.Fatalf("expected no level up for low accuracy, got %d", result.NewSkillLevel)
+	if result.NewSkillLevel != 1 {
+		t.Fatalf("expected first completed session level, got %d", result.NewSkillLevel)
 	}
 	if result.NewMastery != 0.15 {
 		t.Fatalf("expected mastery 0.15, got %v", result.NewMastery)
 	}
-	if repo.courses[courseKey(userID, graph.course.ID)].Status != domain.ProgressStatusInProgress {
-		t.Fatalf("expected course in progress")
+	if repo.courses[courseKey(userID, graph.course.ID)].Status != domain.ProgressStatusCompleted {
+		t.Fatalf("expected course completed")
 	}
-	if repo.units[unitKey(userID, graph.units[0].ID)].Status != domain.ProgressStatusInProgress {
-		t.Fatalf("expected unit in progress")
+	if repo.units[unitKey(userID, graph.units[0].ID)].Status != domain.ProgressStatusCompleted {
+		t.Fatalf("expected unit completed")
 	}
-	if repo.skills[skillKey(userID, graph.skills[0].ID)].Status != domain.ProgressStatusInProgress {
-		t.Fatalf("expected skill in progress")
+	if repo.skills[skillKey(userID, graph.skills[0].ID)].Status != domain.ProgressStatusCompleted {
+		t.Fatalf("expected skill completed")
 	}
 }
 
@@ -125,6 +125,82 @@ func TestApplySessionResultCompletesCourse(t *testing.T) {
 	}
 }
 
+func TestCatalogProgressReturnsOnlyFirstSkillAvailableForNewUser(t *testing.T) {
+	userID := domain.UserID(uuid.New())
+	graph := newContentGraph(1, 1, 3)
+	uc := NewService(Dependencies{Repository: newMemoryRepo(), Content: graph})
+
+	catalog, err := uc.GetCatalogProgress(context.Background(), uuid.UUID(userID).String(), uuid.UUID(graph.course.ID).String())
+	if err != nil {
+		t.Fatalf("catalog failed: %v", err)
+	}
+	if catalog.TotalLessons != 3 || catalog.AvailableLessons != 1 || catalog.CompletedLessons != 0 {
+		t.Fatalf("unexpected catalog counts: %+v", catalog)
+	}
+	if catalog.Skills[0].Status != string(domain.ProgressStatusAvailable) {
+		t.Fatalf("expected first skill available, got %+v", catalog.Skills[0])
+	}
+	if catalog.Skills[1].Status != string(domain.ProgressStatusLocked) || catalog.Skills[2].Status != string(domain.ProgressStatusLocked) {
+		t.Fatalf("expected following skills locked, got %+v", catalog.Skills)
+	}
+}
+
+func TestCatalogProgressUnlocksNextSkillAfterCompletedSkill(t *testing.T) {
+	userID := domain.UserID(uuid.New())
+	graph := newContentGraph(1, 1, 3)
+	repo := newMemoryRepo()
+	repo.skills[skillKey(userID, graph.skills[0].ID)] = domain.SkillProgress{
+		UserID: userID, SkillID: graph.skills[0].ID, Status: domain.ProgressStatusCompleted, Level: 1, Mastery: 0.3,
+	}
+	uc := NewService(Dependencies{Repository: repo, Content: graph})
+
+	catalog, err := uc.GetCatalogProgress(context.Background(), uuid.UUID(userID).String(), uuid.UUID(graph.course.ID).String())
+	if err != nil {
+		t.Fatalf("catalog failed: %v", err)
+	}
+	if catalog.AvailableLessons != 2 || catalog.CompletedLessons != 1 {
+		t.Fatalf("unexpected catalog counts: %+v", catalog)
+	}
+	if catalog.Skills[0].Status != string(domain.ProgressStatusCompleted) {
+		t.Fatalf("expected first skill completed, got %+v", catalog.Skills[0])
+	}
+	if catalog.Skills[1].Status != string(domain.ProgressStatusAvailable) {
+		t.Fatalf("expected second skill available, got %+v", catalog.Skills[1])
+	}
+	if catalog.Skills[2].Status != string(domain.ProgressStatusLocked) {
+		t.Fatalf("expected third skill locked, got %+v", catalog.Skills[2])
+	}
+}
+
+func TestCompleteAllForUserMarksPublishedCatalogCompleted(t *testing.T) {
+	userID := domain.UserID(uuid.New())
+	graph := newContentGraph(1, 2, 2)
+	repo := newMemoryRepo()
+	uc := NewService(Dependencies{Repository: repo, Content: graph})
+
+	catalog, err := uc.CompleteAllForUser(context.Background(), uuid.UUID(userID).String())
+	if err != nil {
+		t.Fatalf("complete all failed: %v", err)
+	}
+	if catalog.TotalLessons != 4 || catalog.CompletedLessons != 4 || catalog.AvailableLessons != 4 {
+		t.Fatalf("unexpected completed catalog: %+v", catalog)
+	}
+	if repo.courses[courseKey(userID, graph.course.ID)].Status != domain.ProgressStatusCompleted {
+		t.Fatalf("expected course completed")
+	}
+	for _, unit := range graph.units {
+		if repo.units[unitKey(userID, unit.ID)].Status != domain.ProgressStatusCompleted {
+			t.Fatalf("expected unit completed: %s", uuid.UUID(unit.ID))
+		}
+	}
+	for _, skill := range graph.skills {
+		progress := repo.skills[skillKey(userID, skill.ID)]
+		if progress.Status != domain.ProgressStatusCompleted || progress.Level != maxSkillLevel || progress.Mastery != 1 {
+			t.Fatalf("expected skill completed with max mastery: %+v", progress)
+		}
+	}
+}
+
 type contentGraph struct {
 	course    cd.Course
 	section   cd.Section
@@ -178,6 +254,10 @@ func (g *contentGraph) GetSection(_ context.Context, id cd.SectionID) (cd.Sectio
 		return g.section, nil
 	}
 	return cd.Section{}, cd.ErrNotFound
+}
+
+func (g *contentGraph) ListPublishedCourses(_ context.Context) ([]cd.Course, error) {
+	return []cd.Course{g.course}, nil
 }
 
 func (g *contentGraph) ListPublishedSkills(_ context.Context, unitID cd.UnitID) ([]cd.Skill, error) {

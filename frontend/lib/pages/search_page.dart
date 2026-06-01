@@ -40,7 +40,10 @@ class _SearchPageState extends State<SearchPage> {
           decoration: InputDecoration(
             hintText: 'Поиск по истории...',
             hintStyle: GoogleFonts.lato(color: AppTheme.textSecondary),
+            filled: false,
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
           ),
           onChanged: (v) => setState(() => _query = v),
         ),

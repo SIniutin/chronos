@@ -3,6 +3,7 @@ package usecase
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -40,8 +41,14 @@ func checkAnswer(challenge content_domain.Challenge, userAnswer json.RawMessage)
 		return checkStringOrder(expected, submitted)
 	case content_domain.ChallengeTypeMatchPairs, content_domain.ChallengeTypeMatchImage:
 		return checkPairs(expected, submitted)
+	case content_domain.ChallengeTypeMatchPhotos:
+		return checkPhotoPairs(expected, submitted)
 	case content_domain.ChallengeTypeFillBlank:
 		return checkFillBlank(expected, submitted)
+	case content_domain.ChallengeTypeMapPoint:
+		return checkMapPoint(expected, submitted)
+	case content_domain.ChallengeTypeMapArea:
+		return checkMapArea(expected, submitted)
 	default:
 		return incorrect("challenge type is unsupported")
 	}
@@ -87,6 +94,17 @@ func checkPairs(expected any, submitted any) checkResult {
 	return checkResult{isCorrect: true}
 }
 
+func checkPhotoPairs(expected any, submitted any) checkResult {
+	expectedPairs := photoPairList(expected)
+	submittedPairs := photoPairList(submitted)
+	sort.Strings(expectedPairs)
+	sort.Strings(submittedPairs)
+	if len(expectedPairs) == 0 || !sameStrings(expectedPairs, submittedPairs) {
+		return incorrect("photo pairs do not match")
+	}
+	return checkResult{isCorrect: true}
+}
+
 func checkFillBlank(expected any, submitted any) checkResult {
 	answer := normalizeText(normalizeScalar(submitted))
 	if answer == "" {
@@ -98,6 +116,108 @@ func checkFillBlank(expected any, submitted any) checkResult {
 		}
 	}
 	return incorrect("answer does not match")
+}
+
+func checkMapPoint(expected any, submitted any) checkResult {
+	target, ok := objectValue(expected)
+	if !ok {
+		return incorrect("challenge map target is malformed")
+	}
+	answer, ok := objectValue(submitted)
+	if !ok {
+		return incorrect("map answer is malformed")
+	}
+	targetLat, ok := numberValue(target, "lat")
+	if !ok {
+		return incorrect("challenge map target is malformed")
+	}
+	targetLng, ok := numberValue(target, "lng")
+	if !ok {
+		return incorrect("challenge map target is malformed")
+	}
+	radius, ok := numberValue(target, "radius_m")
+	if !ok || radius <= 0 {
+		return incorrect("challenge map target radius is malformed")
+	}
+	answerLat, ok := numberValue(answer, "lat")
+	if !ok {
+		return incorrect("map answer is malformed")
+	}
+	answerLng, ok := numberValue(answer, "lng")
+	if !ok {
+		return incorrect("map answer is malformed")
+	}
+	if haversineMeters(targetLat, targetLng, answerLat, answerLng) > radius {
+		return incorrect("map point is outside target radius")
+	}
+	return checkResult{isCorrect: true}
+}
+
+func checkMapArea(expected any, submitted any) checkResult {
+	target, ok := objectValue(expected)
+	if !ok {
+		return incorrect("challenge map area is malformed")
+	}
+	center, ok := nestedObjectValue(target, "center")
+	if !ok {
+		return incorrect("challenge map area center is malformed")
+	}
+	centerLat, ok := numberValue(center, "lat")
+	if !ok {
+		return incorrect("challenge map area center is malformed")
+	}
+	centerLng, ok := numberValue(center, "lng")
+	if !ok {
+		return incorrect("challenge map area center is malformed")
+	}
+	expectedArea, ok := numberValue(target, "area_m2")
+	if !ok || expectedArea <= 0 {
+		return incorrect("challenge map area size is malformed")
+	}
+	centerRadius, ok := numberValue(target, "center_radius_m")
+	if !ok || centerRadius <= 0 {
+		return incorrect("challenge map area center radius is malformed")
+	}
+	tolerance, ok := numberValue(target, "area_tolerance")
+	if !ok || tolerance < 0 {
+		return incorrect("challenge map area tolerance is malformed")
+	}
+
+	answer, ok := objectValue(submitted)
+	if !ok {
+		return incorrect("map area answer is malformed")
+	}
+	answerCenter, ok := nestedObjectValue(answer, "center")
+	var answerCenterLat, answerCenterLng, answerArea float64
+	if ok {
+		answerCenterLat, ok = numberValue(answerCenter, "lat")
+		if !ok {
+			return incorrect("map area answer center is malformed")
+		}
+		answerCenterLng, ok = numberValue(answerCenter, "lng")
+		if !ok {
+			return incorrect("map area answer center is malformed")
+		}
+		answerArea, ok = numberValue(answer, "area_m2")
+		if !ok || answerArea <= 0 {
+			return incorrect("map area answer size is malformed")
+		}
+	} else {
+		points := latLngList(answer["points"])
+		if len(points) < 3 {
+			return incorrect("map area answer is malformed")
+		}
+		answerCenterLat, answerCenterLng, answerArea = polygonCentroidAndArea(points)
+	}
+	if haversineMeters(centerLat, centerLng, answerCenterLat, answerCenterLng) > centerRadius {
+		return incorrect("map area center is outside target radius")
+	}
+	minArea := expectedArea * math.Max(0, 1-tolerance)
+	maxArea := expectedArea * (1 + tolerance)
+	if answerArea < minArea || answerArea > maxArea {
+		return incorrect("map area size is outside tolerance")
+	}
+	return checkResult{isCorrect: true}
 }
 
 func decodeAny(raw json.RawMessage) (any, error) {
@@ -163,6 +283,142 @@ func pairList(value any) []string {
 		}
 	}
 	return out
+}
+
+func photoPairList(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		photo := normalizeScalar(m["photo_id"])
+		label := normalizeScalar(m["label_id"])
+		if photo != "" && label != "" {
+			out = append(out, photo+"="+label)
+		}
+	}
+	return out
+}
+
+type latLng struct {
+	lat float64
+	lng float64
+}
+
+func objectValue(value any) (map[string]any, bool) {
+	if m, ok := value.(map[string]any); ok {
+		return m, true
+	}
+	items, ok := value.([]any)
+	if !ok || len(items) != 1 {
+		return nil, false
+	}
+	m, ok := items[0].(map[string]any)
+	return m, ok
+}
+
+func nestedObjectValue(value map[string]any, key string) (map[string]any, bool) {
+	m, ok := value[key].(map[string]any)
+	return m, ok
+}
+
+func numberValue(value map[string]any, key string) (float64, bool) {
+	switch v := value[key].(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case json.Number:
+		n, err := v.Float64()
+		return n, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func latLngList(value any) []latLng {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]latLng, 0, len(items))
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		lat, ok := numberValue(m, "lat")
+		if !ok {
+			continue
+		}
+		lng, ok := numberValue(m, "lng")
+		if !ok {
+			continue
+		}
+		out = append(out, latLng{lat: lat, lng: lng})
+	}
+	return out
+}
+
+func haversineMeters(lat1, lng1, lat2, lng2 float64) float64 {
+	const earthRadiusMeters = 6371000.0
+	lat1Rad := degToRad(lat1)
+	lat2Rad := degToRad(lat2)
+	dLat := degToRad(lat2 - lat1)
+	dLng := degToRad(lng2 - lng1)
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*math.Sin(dLng/2)*math.Sin(dLng/2)
+	return earthRadiusMeters * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+}
+
+func polygonCentroidAndArea(points []latLng) (float64, float64, float64) {
+	originLat, originLng := averageLatLng(points)
+	coords := make([]struct{ x, y float64 }, 0, len(points))
+	for _, point := range points {
+		coords = append(coords, struct{ x, y float64 }{
+			x: degToRad(point.lng-originLng) * 6371000 * math.Cos(degToRad(originLat)),
+			y: degToRad(point.lat-originLat) * 6371000,
+		})
+	}
+
+	var twiceArea, centroidX, centroidY float64
+	for i := range coords {
+		j := (i + 1) % len(coords)
+		cross := coords[i].x*coords[j].y - coords[j].x*coords[i].y
+		twiceArea += cross
+		centroidX += (coords[i].x + coords[j].x) * cross
+		centroidY += (coords[i].y + coords[j].y) * cross
+	}
+	if math.Abs(twiceArea) < 1e-9 {
+		return originLat, originLng, 0
+	}
+	centroidX /= 3 * twiceArea
+	centroidY /= 3 * twiceArea
+	lat := originLat + radToDeg(centroidY/6371000)
+	lng := originLng + radToDeg(centroidX/(6371000*math.Cos(degToRad(originLat))))
+	return lat, lng, math.Abs(twiceArea) / 2
+}
+
+func averageLatLng(points []latLng) (float64, float64) {
+	var latSum, lngSum float64
+	for _, point := range points {
+		latSum += point.lat
+		lngSum += point.lng
+	}
+	return latSum / float64(len(points)), lngSum / float64(len(points))
+}
+
+func degToRad(value float64) float64 {
+	return value * math.Pi / 180
+}
+
+func radToDeg(value float64) float64 {
+	return value * 180 / math.Pi
 }
 
 func sameStrings(a, b []string) bool {

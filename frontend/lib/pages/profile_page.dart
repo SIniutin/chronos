@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../api/content_api.dart';
 import '../api/gamification_api.dart';
+import '../api/progress_api.dart';
 import '../theme/app_theme.dart';
-import '../data/app_data.dart';
+import '../repositories/content_repository.dart';
 import '../state/session_controller.dart';
+import '../widgets/responsive_text.dart';
 import 'admin_panel_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -11,17 +14,17 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const stats = AppData.userStats;
     final session = SessionScope.of(context);
     final user = session.currentUser;
-    return FutureBuilder<GamificationProfileDto>(
-      future: GamificationApi(session.client).getProfile(),
+    return FutureBuilder<_ProfileData>(
+      future: _loadProfile(session),
       builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final level = profile == null ? stats.level : 'Уровень ${profile.level}';
-        final totalXp = profile?.totalXp ?? stats.totalPoints;
-        final streak = profile?.currentStreak ?? stats.streak;
-        final levelProgress = profile == null ? stats.levelProgress : totalXp % 100;
+        final profile = snapshot.data?.profile;
+        final completedLessons = snapshot.data?.completedLessons ?? 0;
+        final level = 'Уровень ${profile?.level ?? 1}';
+        final totalXp = profile?.totalXp ?? 0;
+        final streak = profile?.currentStreak ?? 0;
+        final levelProgress = totalXp % 100;
         final achievements = profile?.achievements ?? const <AchievementDto>[];
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -121,10 +124,12 @@ class ProfilePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.spaceBetween,
                   children: [
-                    Text(
+                    ResponsiveText(
                       level,
                       style: GoogleFonts.playfairDisplay(
                         color: AppTheme.textPrimary,
@@ -132,7 +137,7 @@ class ProfilePage extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(
+                    ResponsiveText(
                       '$levelProgress%',
                       style: GoogleFonts.lato(
                         color: AppTheme.accent,
@@ -183,8 +188,8 @@ class ProfilePage extends StatelessWidget {
             children: [
               _StatTile(emoji: '🔥', value: '$streak', label: 'Дней подряд', color: const Color(0xFFFF6B35)),
               _StatTile(emoji: '⭐', value: '$totalXp', label: 'XP всего', color: AppTheme.accent),
-              _StatTile(emoji: '📚', value: '${stats.lessonsCompleted}', label: 'Уроков завершено', color: const Color(0xFF5C7AEA)),
-              _StatTile(emoji: '🏆', value: '${stats.quizzesPassed}', label: 'Квизов пройдено', color: const Color(0xFF2ECC71)),
+              _StatTile(emoji: '📚', value: '$completedLessons', label: 'Уроков завершено', color: const Color(0xFF5C7AEA)),
+              _StatTile(emoji: '🏆', value: '$completedLessons', label: 'Квизов пройдено', color: const Color(0xFF2ECC71)),
             ],
           ),
 
@@ -200,23 +205,20 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: achievements.isEmpty
-                ? const [
-                    _Achievement(emoji: '🏛️', title: 'Первый урок', earned: false),
-                    _Achievement(emoji: '🧠', title: 'Идеальный урок', earned: false),
-                    _Achievement(emoji: '🔥', title: '3 дня подряд', earned: false),
-                  ]
-                : achievements
-                    .map((achievement) => _Achievement(
-                          emoji: _achievementEmoji(achievement.code),
-                          title: achievement.title,
-                          earned: true,
-                        ))
-                    .toList(),
-          ),
+          if (achievements.isEmpty)
+            const _EmptyAchievements()
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: achievements
+                  .map((achievement) => _Achievement(
+                        emoji: _achievementEmoji(achievement.code),
+                        title: achievement.title,
+                        earned: true,
+                      ))
+                  .toList(),
+            ),
 
           const SizedBox(height: 24),
 
@@ -282,6 +284,56 @@ class ProfilePage extends StatelessWidget {
         'streak_3' => '🔥',
         _ => '🏛️',
       };
+
+  Future<_ProfileData> _loadProfile(SessionController session) async {
+    GamificationProfileDto? profile;
+    if (session.isAuthenticated) {
+      try {
+        profile = await GamificationApi(session.client).getProfile();
+      } catch (_) {
+        profile = null;
+      }
+    }
+    var completedLessons = 0;
+    try {
+      final catalog = await ContentRepository(
+        ContentApi(session.client),
+        progressApi: session.isAuthenticated ? ProgressApi(session.client) : null,
+        allowFallback: false,
+      ).loadCatalog();
+      completedLessons = catalog.lessons.where((lesson) => lesson.isCompleted).length;
+    } catch (_) {}
+    return _ProfileData(profile: profile, completedLessons: completedLessons);
+  }
+}
+
+class _ProfileData {
+  final GamificationProfileDto? profile;
+  final int completedLessons;
+
+  const _ProfileData({required this.profile, required this.completedLessons});
+}
+
+class _EmptyAchievements extends StatelessWidget {
+  const _EmptyAchievements();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Text(
+        'Пока нет достижений',
+        style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 14),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 }
 
 class _StatTile extends StatelessWidget {
@@ -398,12 +450,19 @@ class _SettingRow extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       leading: Icon(icon, color: c, size: 20),
-      title: Text(
+      title: ResponsiveText(
         label,
         style: GoogleFonts.lato(color: c, fontSize: 15),
       ),
       trailing: trailing != null
-          ? Text(trailing!, style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 13))
+          ? ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 130),
+              child: ResponsiveText(
+                trailing!,
+                textAlign: TextAlign.end,
+                style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 13),
+              ),
+            )
           : Icon(Icons.arrow_forward_ios, color: AppTheme.textSecondary, size: 14),
       dense: true,
     );

@@ -20,6 +20,7 @@ type Service struct {
 }
 
 type ContentRepository interface {
+	ListPublishedCourses(ctx context.Context) ([]content_domain.Course, error)
 	GetSkill(ctx context.Context, id content_domain.SkillID) (content_domain.Skill, error)
 	GetUnit(ctx context.Context, id content_domain.UnitID) (content_domain.Unit, error)
 	GetSection(ctx context.Context, id content_domain.SectionID) (content_domain.Section, error)

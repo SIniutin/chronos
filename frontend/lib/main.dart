@@ -9,6 +9,7 @@ import 'pages/splash_screen.dart';
 import 'pages/onboarding_screen.dart';
 import 'pages/search_page.dart';
 import 'pages/auth_page.dart';
+import 'state/app_navigation.dart';
 import 'state/session_controller.dart';
 import 'widgets/bottom_nav.dart';
 
@@ -87,9 +88,9 @@ class _AppFlowState extends State<AppFlow> {
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
     if (session.isRestoring) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.primary,
-        body: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
       );
     }
     return AnimatedSwitcher(
@@ -114,9 +115,35 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  int _learnVersion = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AppNavigation.mainTab.addListener(_onExternalTabChanged);
+  }
+
+  @override
+  void dispose() {
+    AppNavigation.mainTab.removeListener(_onExternalTabChanged);
+    super.dispose();
+  }
+
+  void _onExternalTabChanged() {
+    if (mounted && _currentIndex != AppNavigation.mainTab.value) {
+      setState(() {
+        _currentIndex = AppNavigation.mainTab.value;
+        if (_currentIndex == 1) _learnVersion++;
+      });
+    }
+  }
 
   void _setPage(int index) {
-    setState(() => _currentIndex = index);
+    AppNavigation.goToTab(index);
+    setState(() {
+      _currentIndex = index;
+      if (index == 1) _learnVersion++;
+    });
   }
 
   @override
@@ -173,7 +200,7 @@ class _MainScreenState extends State<MainScreen> {
             onLearnTap: () => _setPage(1),
             onQuizTap: () => _setPage(2),
           ),
-          const LearnPage(),
+          LearnPage(key: ValueKey(_learnVersion)),
           const QuizPage(),
           const ProfilePage(),
         ],

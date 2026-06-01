@@ -62,6 +62,16 @@ func (s *Service) SubmitAnswer(ctx context.Context, input learning_api.SubmitAns
 	if err := s.queue.MarkAnswered(ctx, current.ID); err != nil {
 		return learning_api.SubmitAnswerResult{}, mapDomainError(err)
 	}
+	if !attempt.IsCorrect {
+		if err := s.queue.Append(ctx, domain.LessonSessionChallenge{
+			ID:          domain.LessonSessionChallengeID(uuid.New()),
+			SessionID:   session.ID,
+			ChallengeID: current.ChallengeID,
+			Status:      domain.SessionChallengeStatusPending,
+		}); err != nil {
+			return learning_api.SubmitAnswerResult{}, mapDomainError(err)
+		}
+	}
 
 	next, err := s.queue.GetCurrentPending(ctx, session.ID)
 	if err != nil {

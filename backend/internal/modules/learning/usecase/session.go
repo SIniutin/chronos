@@ -91,6 +91,15 @@ func (s *Service) FinishSession(ctx context.Context, input learning_api.SessionI
 	if err != nil {
 		return learning_api.LessonSessionResult{}, mapDomainError(err)
 	}
+	if session.Status != domain.LessonSessionStatusFinished {
+		pending, err := s.queue.GetCurrentPending(ctx, session.ID)
+		if err != nil {
+			return learning_api.LessonSessionResult{}, mapDomainError(err)
+		}
+		if pending != nil {
+			return learning_api.LessonSessionResult{}, mapDomainError(domain.ErrInvalidInput)
+		}
+	}
 	result, err := s.calculateResult(ctx, session.ID)
 	if err != nil {
 		return learning_api.LessonSessionResult{}, mapDomainError(err)
@@ -154,10 +163,6 @@ func (s *Service) pickSessionChallenges(ctx context.Context, userID domain.UserI
 }
 
 func (s *Service) calculateResult(ctx context.Context, sessionID domain.LessonSessionID) (domain.LessonSessionResult, error) {
-	queue, err := s.queue.ListBySession(ctx, sessionID)
-	if err != nil {
-		return domain.LessonSessionResult{}, err
-	}
 	attempts, err := s.attempts.ListAttemptsBySession(ctx, sessionID)
 	if err != nil {
 		return domain.LessonSessionResult{}, err
@@ -168,13 +173,14 @@ func (s *Service) calculateResult(ctx context.Context, sessionID domain.LessonSe
 			correct++
 		}
 	}
+	total := len(attempts)
 	percent := 0
-	if len(queue) > 0 {
-		percent = correct * 100 / len(queue)
+	if total > 0 {
+		percent = correct * 100 / total
 	}
 	return domain.LessonSessionResult{
 		SessionID: sessionID,
-		Total:     len(queue),
+		Total:     total,
 		Correct:   correct,
 		Percent:   percent,
 	}, nil

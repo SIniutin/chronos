@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 import '../api/content_api.dart';
+import '../api/progress_api.dart';
 import '../api/recommendation_api.dart';
 import '../repositories/content_repository.dart';
 import '../state/session_controller.dart';
+import '../widgets/responsive_text.dart';
 import 'lesson_page.dart';
 
 class LearnPage extends StatefulWidget {
@@ -21,7 +23,23 @@ class _LearnPageState extends State<LearnPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _catalog = ContentRepository(ContentApi(SessionScope.of(context).client)).loadCatalog();
+    final session = SessionScope.of(context);
+    _catalog = ContentRepository(
+      ContentApi(session.client),
+      progressApi: session.isAuthenticated ? ProgressApi(session.client) : null,
+      allowFallback: false,
+    ).loadCatalog();
+  }
+
+  void _reloadCatalog() {
+    final session = SessionScope.of(context);
+    setState(() {
+      _catalog = ContentRepository(
+        ContentApi(session.client),
+        progressApi: session.isAuthenticated ? ProgressApi(session.client) : null,
+        allowFallback: false,
+      ).loadCatalog();
+    });
   }
 
   @override
@@ -72,28 +90,48 @@ class _LearnPageState extends State<LearnPage> {
                     hintText: 'Поиск по эпохам...',
                     hintStyle: GoogleFonts.lato(color: AppTheme.textSecondary),
                     prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
+                    filled: false,
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               if (courseId != null && session.isAuthenticated) ...[
-                _NextLessonCard(courseId: courseId, lessons: lessons),
+                _NextLessonCard(courseId: courseId, lessons: lessons, onCompleted: _reloadCatalog),
                 const SizedBox(height: 20),
               ],
               ...eras.map((era) => Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: _EraCard(
                       era: era,
-                      onTap: () => Navigator.push(
+                      onTap: () => Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
                           builder: (_) => LessonsListPage(era: era, lessons: lessons),
                         ),
-                      ),
+                      ).then((value) {
+                        if (value == true && mounted) _reloadCatalog();
+                      }),
                     ),
                   )),
+              if (eras.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.cardBg),
+                  ),
+                  child: Text(
+                    'Пока нет доступных уроков',
+                    style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               const SizedBox(height: 20),
             ],
           ),
@@ -106,8 +144,9 @@ class _LearnPageState extends State<LearnPage> {
 class _NextLessonCard extends StatefulWidget {
   final String courseId;
   final List<Lesson> lessons;
+  final VoidCallback onCompleted;
 
-  const _NextLessonCard({required this.courseId, required this.lessons});
+  const _NextLessonCard({required this.courseId, required this.lessons, required this.onCompleted});
 
   @override
   State<_NextLessonCard> createState() => _NextLessonCardState();
@@ -120,6 +159,14 @@ class _NextLessonCardState extends State<_NextLessonCard> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _recommendation = RecommendationApi(SessionScope.of(context).client).getNext(widget.courseId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NextLessonCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.courseId != widget.courseId || oldWidget.lessons != widget.lessons) {
+      _recommendation = RecommendationApi(SessionScope.of(context).client).getNext(widget.courseId);
+    }
   }
 
   @override
@@ -141,10 +188,12 @@ class _NextLessonCardState extends State<_NextLessonCard> {
         };
 
         return GestureDetector(
-          onTap: () => Navigator.push(
+          onTap: () => Navigator.push<bool>(
             context,
             MaterialPageRoute(builder: (_) => LessonPage(lesson: lesson)),
-          ),
+          ).then((value) {
+            if (value == true) widget.onCompleted();
+          }),
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -168,7 +217,7 @@ class _NextLessonCardState extends State<_NextLessonCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      ResponsiveText(
                         title,
                         style: GoogleFonts.lato(
                           color: AppTheme.accent,
@@ -177,7 +226,7 @@ class _NextLessonCardState extends State<_NextLessonCard> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      ResponsiveText(
                         lesson.title,
                         style: GoogleFonts.playfairDisplay(
                           color: AppTheme.textPrimary,
@@ -236,11 +285,11 @@ class _EraCard extends StatelessWidget {
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: era.lessonsCompleted > 0 ? color.withOpacity(0.4) : AppTheme.cardBg,
+            color: era.lessonsCompleted > 0 ? color.withValues(alpha: 0.4) : AppTheme.cardBg,
             width: 1.5,
           ),
           boxShadow: era.lessonsCompleted > 0
-              ? [BoxShadow(color: color.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4))]
+              ? [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))]
               : null,
         ),
         child: Column(
@@ -252,7 +301,7 @@ class _EraCard extends StatelessWidget {
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
@@ -264,7 +313,7 @@ class _EraCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      ResponsiveText(
                         era.title,
                         style: GoogleFonts.playfairDisplay(
                           color: AppTheme.textPrimary,
@@ -273,7 +322,7 @@ class _EraCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
+                      ResponsiveText(
                         era.subtitle,
                         style: GoogleFonts.lato(
                           color: AppTheme.textSecondary,
@@ -287,17 +336,19 @@ class _EraCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
               children: [
-                Text(
+                ResponsiveText(
                   era.dateRange,
                   style: GoogleFonts.lato(
                     color: AppTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
-                Text(
+                ResponsiveText(
                   '${era.lessonsCompleted}/${era.lessonsTotal} уроков',
                   style: GoogleFonts.lato(
                     color: color,
@@ -376,10 +427,12 @@ class LessonsListPage extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: _LessonCard(
                 lesson: lesson,
-                onTap: () => Navigator.push(
+                onTap: () => Navigator.push<bool>(
                   context,
                   MaterialPageRoute(builder: (_) => LessonPage(lesson: lesson)),
-                ),
+                ).then((value) {
+                  if (value == true && context.mounted) Navigator.pop(context, true);
+                }),
               ),
             )),
             if (eraLessons.isEmpty)
@@ -425,10 +478,10 @@ class _LessonCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: lesson.isCompleted
-                ? AppTheme.correct.withOpacity(0.4)
+                ? AppTheme.correct.withValues(alpha: 0.4)
                 : lesson.isLocked
                     ? AppTheme.cardBg
-                    : AppTheme.accent.withOpacity(0.3),
+                    : AppTheme.accent.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -439,10 +492,10 @@ class _LessonCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: lesson.isCompleted
-                    ? AppTheme.correct.withOpacity(0.2)
+                    ? AppTheme.correct.withValues(alpha: 0.2)
                     : lesson.isLocked
                         ? AppTheme.cardBg
-                        : AppTheme.accent.withOpacity(0.15),
+                        : AppTheme.accent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -466,7 +519,7 @@ class _LessonCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  ResponsiveText(
                     lesson.title,
                     style: GoogleFonts.playfairDisplay(
                       color: lesson.isLocked ? AppTheme.textSecondary : AppTheme.textPrimary,
@@ -475,19 +528,20 @@ class _LessonCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Row(
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Icon(Icons.timer_outlined, color: AppTheme.textSecondary, size: 12),
-                      const SizedBox(width: 3),
-                      Text(lesson.duration, style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 12)),
-                      const SizedBox(width: 10),
+                      ResponsiveText(lesson.duration, style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 12)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppTheme.cardBg,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(
+                        child: ResponsiveText(
                           lesson.difficulty,
                           style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 10),
                         ),

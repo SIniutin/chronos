@@ -33,6 +33,7 @@ class Lesson {
   final String difficulty;
   final bool isCompleted;
   final bool isLocked;
+  final String progressStatus;
   final String eraId;
   final List<String> facts;
   final List<QuizQuestion> quizQuestions;
@@ -48,6 +49,7 @@ class Lesson {
     required this.difficulty,
     required this.isCompleted,
     required this.isLocked,
+    this.progressStatus = 'available',
     required this.eraId,
     required this.facts,
     this.quizQuestions = const [],

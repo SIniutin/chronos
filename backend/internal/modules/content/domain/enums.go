@@ -23,9 +23,12 @@ const (
 	ChallengeTypeMatchPairs   ChallengeType = "match_pairs"
 	ChallengeTypeImage        ChallengeType = "image_question"
 	ChallengeTypeMatchImage   ChallengeType = "match_image"
+	ChallengeTypeMatchPhotos  ChallengeType = "match_photos"
 	ChallengeTypeQuote        ChallengeType = "quote_question"
 	ChallengeTypeTrueFalse    ChallengeType = "true_false"
 	ChallengeTypeFillBlank    ChallengeType = "fill_in_blank"
+	ChallengeTypeMapPoint     ChallengeType = "map_point"
+	ChallengeTypeMapArea      ChallengeType = "map_area"
 )
 
 func NewChallengeType(raw string) (ChallengeType, error) {
@@ -33,7 +36,7 @@ func NewChallengeType(raw string) (ChallengeType, error) {
 	switch t {
 	case ChallengeTypeTheory, ChallengeTypeSingleChoice, ChallengeTypeMultiple, ChallengeTypeTimeline,
 		ChallengeTypeMatchPairs, ChallengeTypeImage, ChallengeTypeMatchImage, ChallengeTypeQuote,
-		ChallengeTypeTrueFalse, ChallengeTypeFillBlank:
+		ChallengeTypeMatchPhotos, ChallengeTypeTrueFalse, ChallengeTypeFillBlank, ChallengeTypeMapPoint, ChallengeTypeMapArea:
 		return t, nil
 	default:
 		return "", ErrInvalidInput

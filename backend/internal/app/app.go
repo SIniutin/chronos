@@ -20,6 +20,8 @@ import (
 	learning_infra "github.com/SIniutin/history-app-backend/internal/modules/learning/infra"
 	learning_repo "github.com/SIniutin/history-app-backend/internal/modules/learning/repo/postgre"
 	learning_usecase "github.com/SIniutin/history-app-backend/internal/modules/learning/usecase"
+	media_infra "github.com/SIniutin/history-app-backend/internal/modules/media/infra"
+	progress_infra "github.com/SIniutin/history-app-backend/internal/modules/progress/infra"
 	progress_repo "github.com/SIniutin/history-app-backend/internal/modules/progress/repo/postgre"
 	progress_usecase "github.com/SIniutin/history-app-backend/internal/modules/progress/usecase"
 	recommendation_infra "github.com/SIniutin/history-app-backend/internal/modules/recommendation/infra"
@@ -41,7 +43,9 @@ type App struct {
 	userHandler           *users_infra.Handler
 	contentHandler        *content_infra.Handler
 	learningHandler       *learning_infra.Handler
+	mediaHandler          *media_infra.Handler
 	gamificationHandler   *gamification_infra.Handler
+	progressHandler       *progress_infra.Handler
 	recommendationHandler *recommendation_infra.Handler
 	cfg                   config.Config
 	logger                *zap.Logger
@@ -90,6 +94,15 @@ func New(ctx context.Context) (*App, error) {
 		Progress:     progress_usecase.NewLearningRecorder(progressService),
 		Gamification: gamification_usecase.NewLearningRecorder(gamificationService),
 	})
+	mediaHandler, err := media_infra.NewHandler(media_infra.Dependencies{
+		Config: cfg.S3,
+		Auth:   authMiddleware,
+	})
+	if err != nil {
+		pool.Close()
+		_ = log.Sync()
+		return nil, err
+	}
 	hasher := users_security.NewPasswordHasher()
 	if err := ensureBootstrapAdmin(ctx, cfg.BootstrapAdmin, userRepo, hasher, log); err != nil {
 		pool.Close()
@@ -128,8 +141,13 @@ func New(ctx context.Context) (*App, error) {
 			Sessions: learningService,
 			Auth:     authMiddleware,
 		}),
+		mediaHandler: mediaHandler,
 		gamificationHandler: gamification_infra.NewHandler(gamification_infra.Dependencies{
 			Service: gamificationService,
+			Auth:    authMiddleware,
+		}),
+		progressHandler: progress_infra.NewHandler(progress_infra.Dependencies{
+			Service: progressService,
 			Auth:    authMiddleware,
 		}),
 		recommendationHandler: recommendation_infra.NewHandler(recommendation_infra.Dependencies{
@@ -256,7 +274,9 @@ func (a *App) Router() http.Handler {
 	a.userHandler.RegisterRoutes(r)
 	a.contentHandler.RegisterRoutes(r)
 	a.learningHandler.RegisterRoutes(r)
+	a.mediaHandler.RegisterRoutes(r)
 	a.gamificationHandler.RegisterRoutes(r)
+	a.progressHandler.RegisterRoutes(r)
 	a.recommendationHandler.RegisterRoutes(r)
 
 	return r

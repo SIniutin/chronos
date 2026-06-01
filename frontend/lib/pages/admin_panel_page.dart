@@ -1,11 +1,20 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../api/content_api.dart';
+import '../api/media_api.dart';
+import '../api/progress_api.dart';
 import '../state/session_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/responsive_text.dart';
 
 class AdminPanelPage extends StatefulWidget {
   const AdminPanelPage({super.key});
@@ -22,9 +31,10 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     final session = SessionScope.of(context);
     final user = session.currentUser;
     final tabs = [
-      _PanelTab('Контент', Icons.account_tree_outlined),
-      _PanelTab('Публикация', Icons.verified_outlined),
-      if (user?.isAdmin == true) _PanelTab('Пользователи', Icons.admin_panel_settings_outlined),
+      const _PanelTab('Контент', Icons.account_tree_outlined),
+      const _PanelTab('Публикация', Icons.verified_outlined),
+      if (user?.isAdmin == true)
+        const _PanelTab('Пользователи', Icons.admin_panel_settings_outlined),
     ];
 
     return Scaffold(
@@ -42,12 +52,16 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
               scrollDirection: Axis.horizontal,
               itemBuilder: (_, i) => ChoiceChip(
                 selected: _tab == i,
-                avatar: Icon(tabs[i].icon, size: 16, color: _tab == i ? AppTheme.onAccent : AppTheme.accent),
-                label: Text(tabs[i].label),
+                avatar: Icon(tabs[i].icon,
+                    size: 16,
+                    color: _tab == i ? AppTheme.onAccent : AppTheme.accent),
+                label: ResponsiveText(tabs[i].label),
                 onSelected: (_) => setState(() => _tab = i),
                 selectedColor: AppTheme.accent,
                 backgroundColor: AppTheme.surface,
-                labelStyle: GoogleFonts.lato(color: _tab == i ? AppTheme.onAccent : AppTheme.textPrimary),
+                labelStyle: GoogleFonts.lato(
+                    color:
+                        _tab == i ? AppTheme.onAccent : AppTheme.textPrimary),
               ),
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemCount: tabs.length,
@@ -56,7 +70,8 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           Expanded(
             child: switch (tabs[_tab].label) {
               'Контент' => const _ContentTreeEditor(mode: _ContentMode.edit),
-              'Публикация' => const _ContentTreeEditor(mode: _ContentMode.review),
+              'Публикация' =>
+                const _ContentTreeEditor(mode: _ContentMode.review),
               _ => const _UsersRolePanel(),
             },
           ),
@@ -106,9 +121,12 @@ String _challengeTypeLabel(String type) => switch (type) {
       'match_pairs' => 'Соединить пары',
       'image_question' => 'Вопрос по изображению',
       'match_image' => 'Сопоставить изображения',
+      'match_photos' => 'Сопоставить фотографии',
       'quote_question' => 'Вопрос по цитате',
       'true_false' => 'Верно / неверно',
       'fill_in_blank' => 'Заполнить пропуск',
+      'map_point' => 'Точка на карте',
+      'map_area' => 'Обвести область',
       _ => type,
     };
 
@@ -135,8 +153,11 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
   bool _loading = true;
   String? _error;
 
-  bool get _canEdit => SessionScope.of(context).currentUser?.canEditContent == true && widget.mode == _ContentMode.edit;
-  bool get _canPublish => SessionScope.of(context).currentUser?.canReviewContent == true;
+  bool get _canEdit =>
+      SessionScope.of(context).currentUser?.canEditContent == true &&
+      widget.mode == _ContentMode.edit;
+  bool get _canPublish =>
+      SessionScope.of(context).currentUser?.canReviewContent == true;
   bool get _canArchive => SessionScope.of(context).currentUser?.isAdmin == true;
 
   @override
@@ -218,7 +239,8 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+      return const Center(
+          child: CircularProgressIndicator(color: AppTheme.accent));
     }
     return RefreshIndicator(
       onRefresh: _loadCourses,
@@ -238,11 +260,18 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
                 selected: _course?.id == course.id,
                 onTap: () => _selectCourse(course),
                 onEdit: _canEdit ? () => _editCourse(course) : null,
-                onPublish: _canPublish ? () => _transition('courses', course.id, publish: true) : null,
-                onArchive: _canArchive ? () => _transition('courses', course.id, publish: false) : null,
+                onPublish: _canPublish
+                    ? () => _transition('courses', course.id, publish: true)
+                    : null,
+                onArchive: _canArchive
+                    ? () => _transition('courses', course.id, publish: false)
+                    : null,
               )),
           if (_course != null) ...[
-            _HeaderRow(title: 'Разделы', canAdd: _canEdit, onAdd: () => _editSection(null)),
+            _HeaderRow(
+                title: 'Разделы',
+                canAdd: _canEdit,
+                onAdd: () => _editSection(null)),
             ..._sections.map((section) => _EntityTile(
                   title: section.theme,
                   subtitle: section.description,
@@ -250,12 +279,18 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
                   selected: _section?.id == section.id,
                   onTap: () => _selectSection(section),
                   onEdit: _canEdit ? () => _editSection(section) : null,
-                  onPublish: _canPublish ? () => _transition('sections', section.id, publish: true) : null,
-                  onArchive: _canArchive ? () => _transition('sections', section.id, publish: false) : null,
+                  onPublish: _canPublish
+                      ? () => _transition('sections', section.id, publish: true)
+                      : null,
+                  onArchive: _canArchive
+                      ? () =>
+                          _transition('sections', section.id, publish: false)
+                      : null,
                 )),
           ],
           if (_section != null) ...[
-            _HeaderRow(title: 'Уроки', canAdd: _canEdit, onAdd: () => _editUnit(null)),
+            _HeaderRow(
+                title: 'Уроки', canAdd: _canEdit, onAdd: () => _editUnit(null)),
             ..._units.map((unit) => _EntityTile(
                   title: unit.title,
                   subtitle: 'Порядок показа: ${unit.position}',
@@ -263,12 +298,19 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
                   selected: _unit?.id == unit.id,
                   onTap: () => _selectUnit(unit),
                   onEdit: _canEdit ? () => _editUnit(unit) : null,
-                  onPublish: _canPublish ? () => _transition('units', unit.id, publish: true) : null,
-                  onArchive: _canArchive ? () => _transition('units', unit.id, publish: false) : null,
+                  onPublish: _canPublish
+                      ? () => _transition('units', unit.id, publish: true)
+                      : null,
+                  onArchive: _canArchive
+                      ? () => _transition('units', unit.id, publish: false)
+                      : null,
                 )),
           ],
           if (_unit != null) ...[
-            _HeaderRow(title: 'Навыки', canAdd: _canEdit, onAdd: () => _editSkill(null)),
+            _HeaderRow(
+                title: 'Навыки',
+                canAdd: _canEdit,
+                onAdd: () => _editSkill(null)),
             ..._skills.map((skill) => _EntityTile(
                   title: '${skill.icon} ${skill.title}',
                   subtitle: 'Порядок показа: ${skill.position}',
@@ -276,21 +318,35 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
                   selected: _skill?.id == skill.id,
                   onTap: () => _selectSkill(skill),
                   onEdit: _canEdit ? () => _editSkill(skill) : null,
-                  onPublish: _canPublish ? () => _transition('skills', skill.id, publish: true) : null,
-                  onArchive: _canArchive ? () => _transition('skills', skill.id, publish: false) : null,
+                  onPublish: _canPublish
+                      ? () => _transition('skills', skill.id, publish: true)
+                      : null,
+                  onArchive: _canArchive
+                      ? () => _transition('skills', skill.id, publish: false)
+                      : null,
                 )),
           ],
           if (_skill != null) ...[
-            _HeaderRow(title: 'Вопросы и теория', canAdd: _canEdit, onAdd: () => _editChallenge(null)),
+            _HeaderRow(
+                title: 'Вопросы и теория',
+                canAdd: _canEdit,
+                onAdd: () => _editChallenge(null)),
             ..._challenges.map((challenge) => _EntityTile(
                   title: challenge.prompt,
-                  subtitle: '${_challengeTypeLabel(challenge.type)} · ${_difficultyLabel(challenge.difficulty)}',
+                  subtitle:
+                      '${_challengeTypeLabel(challenge.type)} · ${_difficultyLabel(challenge.difficulty)}${challenge.tags.contains('needs_review') ? ' · needs_review' : ''}',
                   status: challenge.status,
                   selected: false,
                   onTap: _canEdit ? () => _editChallenge(challenge) : () {},
                   onEdit: _canEdit ? () => _editChallenge(challenge) : null,
-                  onPublish: _canPublish ? () => _transition('challenges', challenge.id, publish: true) : null,
-                  onArchive: _canArchive ? () => _transition('challenges', challenge.id, publish: false) : null,
+                  onPublish: _canPublish
+                      ? () =>
+                          _transition('challenges', challenge.id, publish: true)
+                      : null,
+                  onArchive: _canArchive
+                      ? () => _transition('challenges', challenge.id,
+                          publish: false)
+                      : null,
                 )),
           ],
         ],
@@ -298,7 +354,8 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
     );
   }
 
-  Future<void> _transition(String entity, String id, {required bool publish}) => _guard(() async {
+  Future<void> _transition(String entity, String id, {required bool publish}) =>
+      _guard(() async {
         if (publish) {
           await _api.publish(entity, id);
         } else {
@@ -393,7 +450,8 @@ class _HeaderRow extends StatelessWidget {
   final bool canAdd;
   final VoidCallback onAdd;
 
-  const _HeaderRow({required this.title, required this.canAdd, required this.onAdd});
+  const _HeaderRow(
+      {required this.title, required this.canAdd, required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
@@ -402,13 +460,18 @@ class _HeaderRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(title, style: GoogleFonts.playfairDisplay(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
+            child: Text(title,
+                style: GoogleFonts.playfairDisplay(
+                    color: AppTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
           ),
           if (canAdd)
             IconButton(
               tooltip: 'Добавить',
               onPressed: onAdd,
-              icon: const Icon(Icons.add_circle_outline, color: AppTheme.accent),
+              icon:
+                  const Icon(Icons.add_circle_outline, color: AppTheme.accent),
             ),
         ],
       ),
@@ -440,20 +503,27 @@ class _EntityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = <PopupMenuEntry<String>>[
-      if (onEdit != null) const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
-      if (onPublish != null) const PopupMenuItem(value: 'publish', child: Text('Опубликовать')),
-      if (onArchive != null) const PopupMenuItem(value: 'archive', child: Text('В архив')),
+      if (onEdit != null)
+        const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
+      if (onPublish != null)
+        const PopupMenuItem(value: 'publish', child: Text('Опубликовать')),
+      if (onArchive != null)
+        const PopupMenuItem(value: 'archive', child: Text('В архив')),
     ];
     return Card(
       color: selected ? AppTheme.cardBg : AppTheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: selected ? AppTheme.accent : AppTheme.cardBg)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side:
+              BorderSide(color: selected ? AppTheme.accent : AppTheme.cardBg)),
       child: ListTile(
         onTap: onTap,
         title: Text(
           title.isEmpty ? 'Без названия' : title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.lato(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+          style: GoogleFonts.lato(
+              color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
           '$subtitle · ${_statusLabel(status)}',
@@ -464,7 +534,7 @@ class _EntityTile extends StatelessWidget {
         trailing: actions.isEmpty
             ? null
             : PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: AppTheme.textSecondary),
+                icon: Icon(Icons.more_vert, color: AppTheme.textSecondary),
                 color: AppTheme.surface,
                 tooltip: 'Действия',
                 onSelected: (value) {
@@ -509,10 +579,15 @@ class _UsersRolePanelState extends State<_UsersRolePanel> {
   @override
   Widget build(BuildContext context) {
     final auth = AuthApi(SessionScope.of(context).client);
+    final progress = ProgressApi(SessionScope.of(context).client);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Смена роли', style: GoogleFonts.playfairDisplay(color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
+        Text('Смена роли',
+            style: GoogleFonts.playfairDisplay(
+                color: AppTheme.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         _TextInput(controller: _identity, label: 'Email или логин'),
         const SizedBox(height: 12),
@@ -530,18 +605,25 @@ class _UsersRolePanelState extends State<_UsersRolePanel> {
             }
           },
           icon: const Icon(Icons.search),
-          label: const Text('Найти пользователя'),
+          label: const ButtonLabel('Найти пользователя'),
         ),
         if (_found != null) ...[
           const SizedBox(height: 18),
-          _InfoBox('${_found!.login} · ${_found!.email}', 'Текущая роль: ${_roleLabel(_found!.role)}'),
+          _InfoBox('${_found!.login} · ${_found!.email}',
+              'Текущая роль: ${_roleLabel(_found!.role)}'),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _role,
+            initialValue: _role,
             dropdownColor: AppTheme.surface,
             decoration: _inputDecoration('Новая роль'),
-            items: const ['student', 'content_editor', 'content_reviewer', 'admin']
-                .map((role) => DropdownMenuItem(value: role, child: Text(_roleLabel(role))))
+            items: const [
+              'student',
+              'content_editor',
+              'content_reviewer',
+              'admin'
+            ]
+                .map((role) => DropdownMenuItem(
+                    value: role, child: ResponsiveText(_roleLabel(role))))
                 .toList(),
             onChanged: (value) => setState(() => _role = value ?? _role),
           ),
@@ -559,12 +641,47 @@ class _UsersRolePanelState extends State<_UsersRolePanel> {
               }
             },
             icon: const Icon(Icons.save_outlined),
-            label: const Text('Сохранить роль'),
+            label: const ButtonLabel('Сохранить роль'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final userId = _found!.id;
+              if (userId == null || userId.isEmpty) return;
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Отметить всё пройденным?'),
+                  content: Text(
+                      'Пользователь ${_found!.login} получит completed-прогресс по всем опубликованным урокам.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Отмена')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Подтвердить')),
+                  ],
+                ),
+              );
+              if (confirmed != true) return;
+              try {
+                await progress.completeAllForUser(userId);
+                setState(() =>
+                    _message = 'Все опубликованные уроки отмечены пройденными');
+              } on ApiException catch (e) {
+                setState(() => _message = e.message);
+              }
+            },
+            icon: const Icon(Icons.done_all_outlined),
+            label: const ButtonLabel('Отметить всё пройденным'),
           ),
         ],
         if (_message != null) ...[
           const SizedBox(height: 14),
-          Text(_message!, style: GoogleFonts.lato(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+          ResponsiveText(_message!,
+              style: GoogleFonts.lato(
+                  color: AppTheme.accent, fontWeight: FontWeight.bold)),
         ],
       ],
     );
@@ -592,7 +709,14 @@ class _CourseDialog extends StatelessWidget {
         _TextInput(controller: _target, label: 'Язык обучения'),
         _TextInput(controller: _title, label: 'Название курса'),
       ],
-      onSave: () => Navigator.pop(context, CourseDto(id: course?.id ?? '', sourceLang: _source.text, targetLang: _target.text, title: _title.text, status: course?.status ?? 'draft')),
+      onSave: () => Navigator.pop(
+          context,
+          CourseDto(
+              id: course?.id ?? '',
+              sourceLang: _source.text,
+              targetLang: _target.text,
+              title: _title.text,
+              status: course?.status ?? 'draft')),
     );
   }
 }
@@ -616,10 +740,22 @@ class _SectionDialog extends StatelessWidget {
       title: section == null ? 'Новый раздел' : 'Редактировать раздел',
       fields: [
         _TextInput(controller: _theme, label: 'Название раздела'),
-        _TextInput(controller: _description, label: 'Краткое описание', maxLines: 3),
-        _TextInput(controller: _position, label: 'Порядок показа', keyboardType: TextInputType.number),
+        _TextInput(
+            controller: _description, label: 'Краткое описание', maxLines: 3),
+        _TextInput(
+            controller: _position,
+            label: 'Порядок показа',
+            keyboardType: TextInputType.number),
       ],
-      onSave: () => Navigator.pop(context, SectionDto(id: section?.id ?? '', courseId: courseId, theme: _theme.text, description: _description.text, position: int.tryParse(_position.text) ?? 1, status: section?.status ?? 'draft')),
+      onSave: () => Navigator.pop(
+          context,
+          SectionDto(
+              id: section?.id ?? '',
+              courseId: courseId,
+              theme: _theme.text,
+              description: _description.text,
+              position: int.tryParse(_position.text) ?? 1,
+              status: section?.status ?? 'draft')),
     );
   }
 }
@@ -641,9 +777,19 @@ class _UnitDialog extends StatelessWidget {
       title: unit == null ? 'Новый урок' : 'Редактировать урок',
       fields: [
         _TextInput(controller: _title, label: 'Название урока'),
-        _TextInput(controller: _position, label: 'Порядок показа', keyboardType: TextInputType.number),
+        _TextInput(
+            controller: _position,
+            label: 'Порядок показа',
+            keyboardType: TextInputType.number),
       ],
-      onSave: () => Navigator.pop(context, UnitDto(id: unit?.id ?? '', sectionId: sectionId, title: _title.text, position: int.tryParse(_position.text) ?? 1, status: unit?.status ?? 'draft')),
+      onSave: () => Navigator.pop(
+          context,
+          UnitDto(
+              id: unit?.id ?? '',
+              sectionId: sectionId,
+              title: _title.text,
+              position: int.tryParse(_position.text) ?? 1,
+              status: unit?.status ?? 'draft')),
     );
   }
 }
@@ -668,9 +814,20 @@ class _SkillDialog extends StatelessWidget {
       fields: [
         _TextInput(controller: _title, label: 'Название навыка'),
         _TextInput(controller: _icon, label: 'Иконка'),
-        _TextInput(controller: _position, label: 'Порядок показа', keyboardType: TextInputType.number),
+        _TextInput(
+            controller: _position,
+            label: 'Порядок показа',
+            keyboardType: TextInputType.number),
       ],
-      onSave: () => Navigator.pop(context, SkillDto(id: skill?.id ?? '', unitId: unitId, title: _title.text, icon: _icon.text, position: int.tryParse(_position.text) ?? 1, status: skill?.status ?? 'draft')),
+      onSave: () => Navigator.pop(
+          context,
+          SkillDto(
+              id: skill?.id ?? '',
+              unitId: unitId,
+              title: _title.text,
+              icon: _icon.text,
+              position: int.tryParse(_position.text) ?? 1,
+              status: skill?.status ?? 'draft')),
     );
   }
 }
@@ -694,11 +851,18 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     'match_pairs',
     'image_question',
     'match_image',
+    'match_photos',
     'quote_question',
     'true_false',
     'fill_in_blank',
+    'map_point',
+    'map_area',
   ];
   static const _difficulties = ['easy', 'medium', 'hard'];
+  static const _defaultTileUrl =
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  static const _defaultMapAttribution = '© OpenStreetMap contributors';
+  static const _defaultMapCenter = LatLng(55.7558, 37.6173);
 
   final _type = TextEditingController();
   final _difficulty = TextEditingController();
@@ -712,7 +876,21 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
   final _answers = TextEditingController();
   final _explanation = TextEditingController();
   final _position = TextEditingController();
+  final _mapCenterLat = TextEditingController();
+  final _mapCenterLng = TextEditingController();
+  final _mapZoom = TextEditingController();
+  final _mapTileUrl = TextEditingController();
+  final _mapAttribution = TextEditingController();
+  final _mapPointRadius = TextEditingController();
+  final _mapAreaCenterRadius = TextEditingController();
+  final _mapAreaTolerance = TextEditingController();
   String? _error;
+  bool _uploadingImage = false;
+  LatLng? _mapPointAnswer;
+  final List<LatLng> _mapAreaPoints = [];
+  LatLng? _mapAreaCenterAnswer;
+  double? _mapAreaM2;
+  bool _mapAdvancedOpen = false;
 
   @override
   void initState() {
@@ -735,17 +913,48 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
   }
 
   @override
+  void dispose() {
+    _type.dispose();
+    _difficulty.dispose();
+    _tags.dispose();
+    _level.dispose();
+    _lessonCount.dispose();
+    _prompt.dispose();
+    _body.dispose();
+    _payload.dispose();
+    _options.dispose();
+    _answers.dispose();
+    _explanation.dispose();
+    _position.dispose();
+    _mapCenterLat.dispose();
+    _mapCenterLng.dispose();
+    _mapZoom.dispose();
+    _mapTileUrl.dispose();
+    _mapAttribution.dispose();
+    _mapPointRadius.dispose();
+    _mapAreaCenterRadius.dispose();
+    _mapAreaTolerance.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final type = _type.text;
     return _FormDialog(
-      title: widget.challenge == null ? 'Новый вопрос или теория' : 'Редактировать материал',
+      title: widget.challenge == null
+          ? 'Новый вопрос или теория'
+          : 'Редактировать материал',
       error: _error,
       fields: [
         DropdownButtonFormField<String>(
-          value: _types.contains(type) ? type : 'single_choice',
+          initialValue: _types.contains(type) ? type : 'single_choice',
           dropdownColor: AppTheme.surface,
           decoration: _inputDecoration('Тип материала'),
-          items: _types.map((type) => DropdownMenuItem(value: type, child: Text(_challengeTypeLabel(type)))).toList(),
+          items: _types
+              .map((type) => DropdownMenuItem(
+                  value: type,
+                  child: ResponsiveText(_challengeTypeLabel(type))))
+              .toList(),
           onChanged: (value) {
             if (value == null) return;
             setState(() {
@@ -755,25 +964,96 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
           },
         ),
         DropdownButtonFormField<String>(
-          value: _difficulties.contains(_difficulty.text) ? _difficulty.text : 'easy',
+          initialValue: _difficulties.contains(_difficulty.text)
+              ? _difficulty.text
+              : 'easy',
           dropdownColor: AppTheme.surface,
           decoration: _inputDecoration('Сложность'),
-          items: _difficulties.map((item) => DropdownMenuItem(value: item, child: Text(_difficultyLabel(item)))).toList(),
-          onChanged: (value) => setState(() => _difficulty.text = value ?? 'easy'),
+          items: _difficulties
+              .map((item) => DropdownMenuItem(
+                  value: item, child: ResponsiveText(_difficultyLabel(item))))
+              .toList(),
+          onChanged: (value) =>
+              setState(() => _difficulty.text = value ?? 'easy'),
         ),
         _TextInput(controller: _tags, label: 'Теги через запятую'),
-        _TextInput(controller: _level, label: 'Уровень внутри навыка', keyboardType: TextInputType.number),
-        _TextInput(controller: _lessonCount, label: 'Количество шагов урока', keyboardType: TextInputType.number),
+        _TextInput(
+            controller: _level,
+            label: 'Уровень внутри навыка',
+            keyboardType: TextInputType.number),
+        _TextInput(
+            controller: _lessonCount,
+            label: 'Количество шагов урока',
+            keyboardType: TextInputType.number),
         _TextInput(controller: _prompt, label: _promptLabel(type), maxLines: 3),
-        if (_usesBody(type)) _TextInput(controller: _body, label: 'Текст теории', maxLines: 4),
-        if (_usesPayload(type)) _TextInput(controller: _payload, label: _payloadLabel(type), maxLines: 5),
-        if (_usesOptions(type)) _TextInput(controller: _options, label: _optionsLabel(type), maxLines: 5),
-        if (_usesAnswers(type)) _TextInput(controller: _answers, label: _answersLabel(type), maxLines: 5),
-        _TextInput(controller: _explanation, label: _explanationLabel(type), maxLines: 4),
-        _TextInput(controller: _position, label: 'Порядок показа', keyboardType: TextInputType.number),
+        if (_usesBody(type))
+          _TextInput(controller: _body, label: 'Текст теории', maxLines: 4),
+        if (_usesImageUpload(type))
+          OutlinedButton.icon(
+            onPressed: _uploadingImage ? null : () => _pickAndUploadImage(type),
+            icon: _uploadingImage
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.upload_file_outlined),
+            label: ButtonLabel(
+                _uploadingImage ? 'Загрузка...' : 'Загрузить изображение'),
+          ),
+        if (_isMapType(type))
+          _MapAuthoringEditor(
+            type: type,
+            center: _mapCenter(),
+            zoom: _mapZoomValue(),
+            tileUrlTemplate: _mapTileUrl.text.trim().isEmpty
+                ? _defaultTileUrl
+                : _mapTileUrl.text.trim(),
+            attribution: _mapAttribution.text.trim().isEmpty
+                ? _defaultMapAttribution
+                : _mapAttribution.text.trim(),
+            pointAnswer: _mapPointAnswer,
+            areaPoints: _mapAreaPoints,
+            areaCenter: _mapAreaCenterAnswer,
+            areaM2: _mapAreaM2,
+            advancedOpen: _mapAdvancedOpen,
+            centerLatController: _mapCenterLat,
+            centerLngController: _mapCenterLng,
+            zoomController: _mapZoom,
+            tileUrlController: _mapTileUrl,
+            attributionController: _mapAttribution,
+            pointRadiusController: _mapPointRadius,
+            areaCenterRadiusController: _mapAreaCenterRadius,
+            areaToleranceController: _mapAreaTolerance,
+            onChanged: _onMapEditorChanged,
+            onPointSelected: _setMapPointAnswer,
+            onAreaPointAdded: _addMapAreaPoint,
+            onAreaClear: _clearMapArea,
+            onAreaDone: _finalizeMapArea,
+            onAdvancedChanged: (value) =>
+                setState(() => _mapAdvancedOpen = value),
+            onCenterFromAnswer: _centerMapFromAnswer,
+          )
+        else if (_usesPayload(type))
+          _TextInput(
+              controller: _payload, label: _payloadLabel(type), maxLines: 5),
+        if (_usesOptions(type))
+          _TextInput(
+              controller: _options, label: _optionsLabel(type), maxLines: 5),
+        if (!_isMapType(type) && _usesAnswers(type))
+          _TextInput(
+              controller: _answers, label: _answersLabel(type), maxLines: 5),
+        _TextInput(
+            controller: _explanation,
+            label: _explanationLabel(type),
+            maxLines: 4),
+        _TextInput(
+            controller: _position,
+            label: 'Порядок показа',
+            keyboardType: TextInputType.number),
       ],
       onSave: () {
         try {
+          _validateMapEditor();
           Navigator.pop(
             context,
             ChallengeDto(
@@ -781,7 +1061,11 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
               skillId: widget.skillId,
               type: _type.text,
               difficulty: _difficulty.text,
-              tags: _tags.text.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
+              tags: _tags.text
+                  .split(',')
+                  .map((tag) => tag.trim())
+                  .where((tag) => tag.isNotEmpty)
+                  .toList(),
               level: int.tryParse(_level.text) ?? 1,
               lessonCount: int.tryParse(_lessonCount.text) ?? 1,
               prompt: _prompt.text,
@@ -795,7 +1079,8 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
             ),
           );
         } catch (_) {
-          setState(() => _error = 'Проверьте поля с вариантами, ответами и дополнительными данными');
+          setState(() => _error =
+              'Проверьте поля с вариантами, ответами и дополнительными данными');
         }
       },
     );
@@ -809,7 +1094,8 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
         _answers.clear();
       case 'timeline':
         _payload.clear();
-        _options.text = '1905 | Первая русская революция\n1917 | Февральская революция';
+        _options.text =
+            '1905 | Первая русская революция\n1917 | Февральская революция';
         _answers.text = '1, 2';
       case 'match_pairs':
         _payload.clear();
@@ -820,8 +1106,10 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
         _options.text = _choiceOptions();
         _answers.text = '1';
       case 'match_image':
+      case 'match_photos':
         _payload.clear();
-        _options.text = 'https://example.com/image.jpg | Описание изображения | Подпись';
+        _options.text =
+            'https://example.com/image.jpg | Описание изображения | Подпись';
         _answers.clear();
       case 'quote_question':
         _payload.text = 'Текст цитаты\nИсточник';
@@ -835,6 +1123,12 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
         _payload.text = 'В ____ году ...';
         _options.clear();
         _answers.text = '1905';
+      case 'map_point':
+        _resetMapEditor();
+        _options.clear();
+      case 'map_area':
+        _resetMapEditor();
+        _options.clear();
       case 'multiple_choice':
         _payload.clear();
         _options.text = _choiceOptions();
@@ -846,59 +1140,429 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     }
   }
 
+  Future<void> _pickAndUploadImage(String type) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'],
+      withData: true,
+    );
+    final file = result?.files.single;
+    final bytes = file?.bytes;
+    if (file == null || bytes == null) return;
+    setState(() {
+      _uploadingImage = true;
+      _error = null;
+    });
+    try {
+      final upload =
+          await MediaApi(SessionScope.of(context).client).uploadImage(
+        filename: file.name,
+        bytes: bytes,
+        contentType: _contentTypeForName(file.name),
+      );
+      if (!mounted) return;
+      setState(() {
+        if (type == 'image_question') {
+          final lines = _nonEmptyLines(_payload.text);
+          final alt = lines.length > 1 ? lines.sublist(1).join(' ') : '';
+          _payload.text = [upload.url, if (alt.isNotEmpty) alt].join('\n');
+        } else if (type == 'match_image' || type == 'match_photos') {
+          final lines = _nonEmptyLines(_options.text);
+          lines.add('${upload.url} | Изображение | Подпись');
+          _options.text = lines.join('\n');
+        }
+        _uploadingImage = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _uploadingImage = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Не удалось загрузить изображение';
+        _uploadingImage = false;
+      });
+    }
+  }
+
+  String _contentTypeForName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
   String _choiceOptions() {
     return 'Вариант A\nВариант B\nВариант C';
+  }
+
+  void _resetMapEditor() {
+    _mapCenterLat.text = _formatCoord(_defaultMapCenter.latitude);
+    _mapCenterLng.text = _formatCoord(_defaultMapCenter.longitude);
+    _mapZoom.text = '5';
+    _mapTileUrl.text = _defaultTileUrl;
+    _mapAttribution.text = _defaultMapAttribution;
+    _mapPointRadius.text = '25000';
+    _mapAreaCenterRadius.text = '60000';
+    _mapAreaTolerance.text = '0.7';
+    _mapPointAnswer = null;
+    _mapAreaPoints.clear();
+    _mapAreaCenterAnswer = null;
+    _mapAreaM2 = null;
+    _syncMapRawJson();
+  }
+
+  void _hydrateMapEditor(ChallengeDto challenge) {
+    final payload =
+        challenge.payload is Map ? challenge.payload as Map : const {};
+    final answers =
+        challenge.answers is Map ? challenge.answers as Map : const {};
+    final center = _latLngFromMap(payload['center']) ?? _defaultMapCenter;
+    _mapCenterLat.text = _formatCoord(center.latitude);
+    _mapCenterLng.text = _formatCoord(center.longitude);
+    _mapZoom.text = _formatPlain(_doubleValue(payload['zoom']) ?? 5);
+    _mapTileUrl.text =
+        '${payload['tile_url_template'] ?? payload['tileUrlTemplate'] ?? _defaultTileUrl}';
+    _mapAttribution.text =
+        '${payload['attribution'] ?? _defaultMapAttribution}';
+    _mapPointRadius.text =
+        _formatPlain(_doubleValue(answers['radius_m']) ?? 25000);
+    _mapAreaCenterRadius.text =
+        _formatPlain(_doubleValue(answers['center_radius_m']) ?? 60000);
+    _mapAreaTolerance.text =
+        _formatPlain(_doubleValue(answers['area_tolerance']) ?? 0.7);
+    _mapPointAnswer =
+        challenge.type == 'map_point' ? _latLngFromMap(answers) : null;
+    _mapAreaPoints.clear();
+    _mapAreaCenterAnswer =
+        challenge.type == 'map_area' ? _latLngFromMap(answers['center']) : null;
+    _mapAreaM2 =
+        challenge.type == 'map_area' ? _doubleValue(answers['area_m2']) : null;
+    _syncMapRawJson();
+  }
+
+  void _onMapEditorChanged() {
+    setState(_syncMapRawJson);
+  }
+
+  void _setMapPointAnswer(LatLng point) {
+    setState(() {
+      _mapPointAnswer = point;
+      _syncMapRawJson();
+    });
+  }
+
+  void _addMapAreaPoint(LatLng point) {
+    setState(() {
+      _mapAreaPoints.add(point);
+      _mapAreaCenterAnswer = null;
+      _mapAreaM2 = null;
+      _syncMapRawJson();
+    });
+  }
+
+  void _clearMapArea() {
+    setState(() {
+      _mapAreaPoints.clear();
+      _mapAreaCenterAnswer = null;
+      _mapAreaM2 = null;
+      _syncMapRawJson();
+    });
+  }
+
+  void _finalizeMapArea() {
+    if (_mapAreaPoints.length < 3) return;
+    final stats = _polygonStats(_mapAreaPoints);
+    setState(() {
+      _mapAreaCenterAnswer = stats.center;
+      _mapAreaM2 = stats.areaM2;
+      _syncMapRawJson();
+    });
+  }
+
+  void _centerMapFromAnswer() {
+    final center =
+        _type.text == 'map_point' ? _mapPointAnswer : _mapAreaCenterAnswer;
+    if (center == null) return;
+    setState(() {
+      _mapCenterLat.text = _formatCoord(center.latitude);
+      _mapCenterLng.text = _formatCoord(center.longitude);
+      _syncMapRawJson();
+    });
+  }
+
+  void _syncMapRawJson() {
+    if (!_isMapType(_type.text)) return;
+    _payload.text = _prettyJson(_mapPayloadValue());
+    final answer = _mapAnswersOrNull();
+    _answers.text = answer == null ? '' : _prettyJson(answer);
+  }
+
+  Map<String, dynamic> _mapPayloadValue() {
+    return {
+      'center': {'lat': _mapCenter().latitude, 'lng': _mapCenter().longitude},
+      'zoom': _mapZoomValue(),
+      'tile_url_template': _mapTileUrl.text.trim().isEmpty
+          ? _defaultTileUrl
+          : _mapTileUrl.text.trim(),
+      'attribution': _mapAttribution.text.trim().isEmpty
+          ? _defaultMapAttribution
+          : _mapAttribution.text.trim(),
+    };
+  }
+
+  dynamic _mapAnswersOrNull() {
+    if (_type.text == 'map_point') {
+      final point = _mapPointAnswer;
+      if (point == null) return null;
+      return {
+        'lat': point.latitude,
+        'lng': point.longitude,
+        'radius_m': _mapPointRadiusValue()
+      };
+    }
+    if (_type.text == 'map_area') {
+      final center = _mapAreaCenterAnswer;
+      final area = _mapAreaM2;
+      if (center == null || area == null || area <= 0) return null;
+      return {
+        'center': {'lat': center.latitude, 'lng': center.longitude},
+        'area_m2': area,
+        'center_radius_m': _mapAreaCenterRadiusValue(),
+        'area_tolerance': _mapAreaToleranceValue(),
+      };
+    }
+    return null;
+  }
+
+  dynamic _mapAnswersValue() {
+    final answer = _mapAnswersOrNull();
+    if (answer == null) {
+      throw const FormatException('Map answer is incomplete');
+    }
+    return answer;
+  }
+
+  void _validateMapEditor() {
+    if (!_isMapType(_type.text)) return;
+    final centerLat = _doubleValue(_mapCenterLat.text);
+    final centerLng = _doubleValue(_mapCenterLng.text);
+    final zoom = _doubleValue(_mapZoom.text);
+    if (centerLat == null ||
+        centerLat < -90 ||
+        centerLat > 90 ||
+        centerLng == null ||
+        centerLng < -180 ||
+        centerLng > 180) {
+      throw const FormatException('Map center is invalid');
+    }
+    if (zoom == null || zoom < 1 || zoom > 18) {
+      throw const FormatException('Map zoom must be between 1 and 18');
+    }
+    if (_mapTileUrl.text.trim().isEmpty ||
+        _mapAttribution.text.trim().isEmpty) {
+      throw const FormatException('Map tile settings are incomplete');
+    }
+    if (_type.text == 'map_point') {
+      if (_mapPointAnswer == null)
+        throw const FormatException('Map point is required');
+      final radius = _doubleValue(_mapPointRadius.text);
+      if (radius == null || radius <= 0)
+        throw const FormatException('Map point radius is required');
+    }
+    if (_type.text == 'map_area') {
+      if (_mapAreaPoints.isNotEmpty && _mapAreaPoints.length < 3) {
+        throw const FormatException('Map area needs at least three points');
+      }
+      if (_mapAreaCenterAnswer == null || _mapAreaM2 == null) {
+        throw const FormatException('Map area is required');
+      }
+      final centerRadius = _doubleValue(_mapAreaCenterRadius.text);
+      final areaTolerance = _doubleValue(_mapAreaTolerance.text);
+      if (centerRadius == null ||
+          centerRadius <= 0 ||
+          areaTolerance == null ||
+          areaTolerance < 0) {
+        throw const FormatException('Map area tolerance is invalid');
+      }
+    }
+  }
+
+  LatLng _mapCenter() {
+    return LatLng(
+      _doubleValue(_mapCenterLat.text) ?? _defaultMapCenter.latitude,
+      _doubleValue(_mapCenterLng.text) ?? _defaultMapCenter.longitude,
+    );
+  }
+
+  double _mapZoomValue() =>
+      (_doubleValue(_mapZoom.text) ?? 5).clamp(1, 18).toDouble();
+
+  double _mapPointRadiusValue() => _doubleValue(_mapPointRadius.text) ?? 25000;
+
+  double _mapAreaCenterRadiusValue() =>
+      _doubleValue(_mapAreaCenterRadius.text) ?? 60000;
+
+  double _mapAreaToleranceValue() =>
+      _doubleValue(_mapAreaTolerance.text) ?? 0.7;
+
+  LatLng? _latLngFromMap(dynamic raw) {
+    if (raw is! Map) return null;
+    final lat = _doubleValue(raw['lat']);
+    final lng = _doubleValue(raw['lng']);
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  double? _doubleValue(dynamic raw) {
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.replaceAll(',', '.'));
+    return null;
+  }
+
+  _MapAreaStats _polygonStats(List<LatLng> points) {
+    final origin = _averageLatLng(points);
+    final coords = points
+        .map((point) => _ProjectedPoint(
+              x: _degToRad(point.longitude - origin.longitude) *
+                  6371000 *
+                  math.cos(_degToRad(origin.latitude)),
+              y: _degToRad(point.latitude - origin.latitude) * 6371000,
+            ))
+        .toList();
+    var twiceArea = 0.0;
+    var centroidX = 0.0;
+    var centroidY = 0.0;
+    for (var i = 0; i < coords.length; i++) {
+      final j = (i + 1) % coords.length;
+      final cross = coords[i].x * coords[j].y - coords[j].x * coords[i].y;
+      twiceArea += cross;
+      centroidX += (coords[i].x + coords[j].x) * cross;
+      centroidY += (coords[i].y + coords[j].y) * cross;
+    }
+    if (twiceArea.abs() < 1e-9) {
+      return _MapAreaStats(center: origin, areaM2: 0);
+    }
+    centroidX /= 3 * twiceArea;
+    centroidY /= 3 * twiceArea;
+    return _MapAreaStats(
+      center: LatLng(
+        origin.latitude + _radToDeg(centroidY / 6371000),
+        origin.longitude +
+            _radToDeg(
+                centroidX / (6371000 * math.cos(_degToRad(origin.latitude)))),
+      ),
+      areaM2: twiceArea.abs() / 2,
+    );
+  }
+
+  LatLng _averageLatLng(List<LatLng> points) {
+    var lat = 0.0;
+    var lng = 0.0;
+    for (final point in points) {
+      lat += point.latitude;
+      lng += point.longitude;
+    }
+    return LatLng(lat / points.length, lng / points.length);
+  }
+
+  double _degToRad(double value) => value * math.pi / 180;
+
+  double _radToDeg(double value) => value * 180 / math.pi;
+
+  String _formatCoord(double value) => value.toStringAsFixed(6);
+
+  String _formatPlain(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value
+        .toStringAsFixed(6)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
   }
 
   void _hydrateEditorFields(ChallengeDto challenge) {
     switch (challenge.type) {
       case 'theory':
-        final facts = (challenge.payload['facts'] as List?)?.map((item) => '$item').toList() ?? [];
+        final facts = (challenge.payload['facts'] as List?)
+                ?.map((item) => '$item')
+                .toList() ??
+            [];
         final summary = '${challenge.payload['summary'] ?? ''}'.trim();
-        _payload.text = [...facts, if (summary.isNotEmpty) '', if (summary.isNotEmpty) summary].join('\n');
+        _payload.text = [
+          ...facts,
+          if (summary.isNotEmpty) '',
+          if (summary.isNotEmpty) summary
+        ].join('\n');
       case 'timeline':
-        final events = challenge.options is List ? challenge.options as List : const [];
+        final events =
+            challenge.options is List ? challenge.options as List : const [];
         _options.text = events.map((item) {
           final map = item is Map ? item : const {};
           return '${map['date'] ?? ''} | ${map['text'] ?? ''}'.trim();
         }).join('\n');
         _answers.text = _answerIndexes(events, challenge.answers).join(', ');
       case 'match_pairs':
-        _options.text = _pairLines(challenge.options, challenge.answers, imageMode: false).join('\n');
+        _options.text =
+            _pairLines(challenge.options, challenge.answers, imageMode: false)
+                .join('\n');
       case 'match_image':
-        _options.text = _pairLines(challenge.options, challenge.answers, imageMode: true).join('\n');
+      case 'match_photos':
+        _options.text =
+            _pairLines(challenge.options, challenge.answers, imageMode: true)
+                .join('\n');
       case 'image_question':
-        _payload.text = '${challenge.payload['image_url'] ?? ''}\n${challenge.payload['alt'] ?? ''}'.trim();
+        _payload.text =
+            '${challenge.payload['image_url'] ?? ''}\n${challenge.payload['alt'] ?? ''}'
+                .trim();
         _hydrateChoiceFields(challenge);
       case 'quote_question':
-        _payload.text = '${challenge.payload['quote'] ?? ''}\n${challenge.payload['source'] ?? ''}'.trim();
+        _payload.text =
+            '${challenge.payload['quote'] ?? ''}\n${challenge.payload['source'] ?? ''}'
+                .trim();
         _hydrateChoiceFields(challenge);
       case 'true_false':
-        _answers.text = challenge.answers.contains('false') ? 'неверно' : 'верно';
+        _answers.text =
+            challenge.answers.contains('false') ? 'неверно' : 'верно';
       case 'fill_in_blank':
         _payload.text = '${challenge.payload['text'] ?? ''}';
         _answers.text = challenge.answers.join('\n');
+      case 'map_point':
+      case 'map_area':
+        _hydrateMapEditor(challenge);
       default:
         _hydrateChoiceFields(challenge);
     }
   }
 
   void _hydrateChoiceFields(ChallengeDto challenge) {
-    final options = challenge.options is List ? challenge.options as List : const [];
-    _options.text = options.map((item) => item is Map ? '${item['text'] ?? ''}' : '$item').join('\n');
+    final options =
+        challenge.options is List ? challenge.options as List : const [];
+    _options.text = options
+        .map((item) => item is Map ? '${item['text'] ?? ''}' : '$item')
+        .join('\n');
     _answers.text = _answerIndexes(options, challenge.answers).join(', ');
   }
 
-  List<String> _pairLines(dynamic options, List<dynamic> answers, {required bool imageMode}) {
+  List<String> _pairLines(dynamic options, List<dynamic> answers,
+      {required bool imageMode}) {
     if (options is! Map) return const [];
-    final left = options['left'] is List ? options['left'] as List : const [];
-    final right = options['right'] is List ? options['right'] as List : const [];
+    final photoMode = options['photos'] is List || options['labels'] is List;
+    final left = photoMode
+        ? (options['photos'] is List ? options['photos'] as List : const [])
+        : (options['left'] is List ? options['left'] as List : const []);
+    final right = photoMode
+        ? (options['labels'] is List ? options['labels'] as List : const [])
+        : (options['right'] is List ? options['right'] as List : const []);
     final rightById = {
       for (final item in right)
         if (item is Map) '${item['id']}': item,
     };
     if (answers.isEmpty) {
-      return List.generate(left.length < right.length ? left.length : right.length, (index) {
+      return List.generate(
+          left.length < right.length ? left.length : right.length, (index) {
         final leftMap = left[index] is Map ? left[index] as Map : const {};
         final rightMap = right[index] is Map ? right[index] as Map : const {};
         return imageMode
@@ -908,11 +1572,14 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     }
     return answers.map((answer) {
       final answerMap = answer is Map ? answer : const {};
+      final leftAnswerKey = photoMode ? 'photo_id' : 'left_id';
+      final rightAnswerKey = photoMode ? 'label_id' : 'right_id';
       final leftMap = left.cast<dynamic>().firstWhere(
-            (item) => item is Map && '${item['id']}' == '${answerMap['left_id']}',
+            (item) =>
+                item is Map && '${item['id']}' == '${answerMap[leftAnswerKey]}',
             orElse: () => const {},
           ) as Map;
-      final rightMap = rightById['${answerMap['right_id']}'] ?? const {};
+      final rightMap = rightById['${answerMap[rightAnswerKey]}'] ?? const {};
       return imageMode
           ? '${leftMap['image_url'] ?? ''} | ${leftMap['alt'] ?? ''} | ${rightMap['text'] ?? ''}'
           : '${leftMap['text'] ?? ''} | ${rightMap['text'] ?? ''}';
@@ -924,10 +1591,12 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       for (final item in options)
         if (item is Map) '${item['id']}',
     ];
-    return [
-      for (final answer in answers)
-        if (ids.indexOf('$answer') >= 0) ids.indexOf('$answer') + 1,
-    ];
+    final indexes = <int>[];
+    for (final answer in answers) {
+      final index = ids.indexOf('$answer');
+      if (index >= 0) indexes.add(index + 1);
+    }
+    return indexes;
   }
 
   Map<String, dynamic> _payloadValue() {
@@ -935,25 +1604,38 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     final lines = _nonEmptyLines(_payload.text);
     if (type == 'theory') {
       return {
-        'facts': lines.length > 1 ? lines.take(lines.length - 1).toList() : lines,
+        'facts':
+            lines.length > 1 ? lines.take(lines.length - 1).toList() : lines,
         'summary': lines.length > 1 ? lines.last : '',
       };
     }
     if (type == 'image_question') {
-      return {'image_url': lines.isNotEmpty ? lines.first : '', 'alt': lines.length > 1 ? lines.sublist(1).join(' ') : ''};
+      return {
+        'image_url': lines.isNotEmpty ? lines.first : '',
+        'alt': lines.length > 1 ? lines.sublist(1).join(' ') : ''
+      };
     }
     if (type == 'quote_question') {
-      return {'quote': lines.isNotEmpty ? lines.first : '', 'source': lines.length > 1 ? lines.sublist(1).join(' ') : ''};
+      return {
+        'quote': lines.isNotEmpty ? lines.first : '',
+        'source': lines.length > 1 ? lines.sublist(1).join(' ') : ''
+      };
     }
     if (type == 'fill_in_blank') {
       return {'text': _payload.text.trim(), 'placeholder': '____'};
+    }
+    if (type == 'map_point' || type == 'map_area') {
+      return _mapPayloadValue();
     }
     return {};
   }
 
   dynamic _optionsValue() {
     final type = _type.text;
-    if (type == 'theory' || type == 'fill_in_blank') return [];
+    if (type == 'theory' ||
+        type == 'fill_in_blank' ||
+        type == 'map_point' ||
+        type == 'map_area') return [];
     if (type == 'true_false') {
       return [
         {'id': 'true', 'text': 'Верно'},
@@ -963,69 +1645,140 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     if (type == 'timeline') {
       return _nonEmptyLines(_options.text).asMap().entries.map((entry) {
         final parts = _splitParts(entry.value);
-        return {'id': _idFor(entry.key), 'date': parts.isNotEmpty ? parts.first : '', 'text': parts.length > 1 ? parts.sublist(1).join(' | ') : entry.value};
+        return {
+          'id': _idFor(entry.key),
+          'date': parts.isNotEmpty ? parts.first : '',
+          'text': parts.length > 1 ? parts.sublist(1).join(' | ') : entry.value
+        };
       }).toList();
     }
-    if (type == 'match_pairs' || type == 'match_image') {
+    if (type == 'match_pairs' ||
+        type == 'match_image' ||
+        type == 'match_photos') {
       final lines = _nonEmptyLines(_options.text);
+      final leftKey = type == 'match_photos' ? 'photos' : 'left';
+      final rightKey = type == 'match_photos' ? 'labels' : 'right';
       return {
-        'left': lines.asMap().entries.map((entry) {
+        leftKey: lines.asMap().entries.map((entry) {
           final parts = _splitParts(entry.value);
-          return type == 'match_image'
-              ? {'id': 'l${entry.key + 1}', 'image_url': parts.isNotEmpty ? parts[0] : '', 'alt': parts.length > 1 ? parts[1] : ''}
-              : {'id': 'l${entry.key + 1}', 'text': parts.isNotEmpty ? parts[0] : ''};
+          return type == 'match_image' || type == 'match_photos'
+              ? {
+                  'id': type == 'match_photos'
+                      ? 'p${entry.key + 1}'
+                      : 'l${entry.key + 1}',
+                  'image_url': parts.isNotEmpty ? parts[0] : '',
+                  'alt': parts.length > 1 ? parts[1] : ''
+                }
+              : {
+                  'id': 'l${entry.key + 1}',
+                  'text': parts.isNotEmpty ? parts[0] : ''
+                };
         }).toList(),
-        'right': lines.asMap().entries.map((entry) {
+        rightKey: lines.asMap().entries.map((entry) {
           final parts = _splitParts(entry.value);
-          return {'id': 'r${entry.key + 1}', 'text': parts.length > (type == 'match_image' ? 2 : 1) ? parts[type == 'match_image' ? 2 : 1] : ''};
+          return {
+            'id': type == 'match_photos'
+                ? 'l${entry.key + 1}'
+                : 'r${entry.key + 1}',
+            'text': parts.length > (type == 'match_pairs' ? 1 : 2)
+                ? parts[type == 'match_pairs' ? 1 : 2]
+                : ''
+          };
         }).toList(),
       };
     }
     return _choiceList();
   }
 
-  List<dynamic> _answersValue() {
+  dynamic _answersValue() {
     final type = _type.text;
     if (type == 'theory') return [];
     if (type == 'match_pairs' || type == 'match_image') {
       final count = _nonEmptyLines(_options.text).length;
-      return List.generate(count, (index) => {'left_id': 'l${index + 1}', 'right_id': 'r${index + 1}'});
+      return List.generate(count,
+          (index) => {'left_id': 'l${index + 1}', 'right_id': 'r${index + 1}'});
+    }
+    if (type == 'match_photos') {
+      final count = _nonEmptyLines(_options.text).length;
+      return List.generate(
+          count,
+          (index) =>
+              {'photo_id': 'p${index + 1}', 'label_id': 'l${index + 1}'});
     }
     if (type == 'true_false') {
       final text = _answers.text.trim().toLowerCase();
       return [text.contains('не') || text == 'false' ? 'false' : 'true'];
     }
     if (type == 'fill_in_blank') return _nonEmptyLines(_answers.text);
+    if (type == 'map_point' || type == 'map_area') {
+      return _mapAnswersValue();
+    }
     final optionIds = _choiceList().map((item) => '${item['id']}').toList();
     final indexes = _parseAnswerIndexes(_answers.text, optionIds.length);
     return [for (final index in indexes) optionIds[index]];
   }
 
   List<Map<String, String>> _choiceList() {
-    return _nonEmptyLines(_options.text).asMap().entries.map((entry) => {'id': _idFor(entry.key), 'text': entry.value}).toList();
+    return _nonEmptyLines(_options.text)
+        .asMap()
+        .entries
+        .map((entry) => {'id': _idFor(entry.key), 'text': entry.value})
+        .toList();
   }
 
-  List<String> _nonEmptyLines(String text) => text.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).toList();
+  List<String> _nonEmptyLines(String text) => text
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList();
 
-  List<String> _splitParts(String line) => line.split('|').map((part) => part.trim()).toList();
+  List<String> _splitParts(String line) =>
+      line.split('|').map((part) => part.trim()).toList();
 
   String _idFor(int index) => String.fromCharCode('a'.codeUnitAt(0) + index);
 
+  String _prettyJson(dynamic value) =>
+      const JsonEncoder.withIndent('  ').convert(value);
+
   List<int> _parseAnswerIndexes(String text, int optionCount) {
-    final parts = text.split(RegExp(r'[,;\s]+')).map((part) => part.trim().toLowerCase()).where((part) => part.isNotEmpty);
+    final parts = text
+        .split(RegExp(r'[,;\s]+'))
+        .map((part) => part.trim().toLowerCase())
+        .where((part) => part.isNotEmpty);
     final indexes = <int>[];
     for (final part in parts) {
       final number = int.tryParse(part);
-      final index = number != null ? number - 1 : part.codeUnitAt(0) - 'a'.codeUnitAt(0);
-      if (index >= 0 && index < optionCount && !indexes.contains(index)) indexes.add(index);
+      final index =
+          number != null ? number - 1 : part.codeUnitAt(0) - 'a'.codeUnitAt(0);
+      if (index >= 0 && index < optionCount && !indexes.contains(index))
+        indexes.add(index);
     }
     return indexes.isEmpty && optionCount > 0 ? [0] : indexes;
   }
 
   bool _usesBody(String type) => type == 'theory';
-  bool _usesPayload(String type) => ['theory', 'image_question', 'quote_question', 'fill_in_blank'].contains(type);
-  bool _usesOptions(String type) => !['fill_in_blank', 'theory', 'true_false'].contains(type);
-  bool _usesAnswers(String type) => !['theory', 'match_pairs', 'match_image'].contains(type);
+  bool _isMapType(String type) => type == 'map_point' || type == 'map_area';
+  bool _usesImageUpload(String type) =>
+      type == 'image_question' ||
+      type == 'match_image' ||
+      type == 'match_photos';
+  bool _usesPayload(String type) => [
+        'theory',
+        'image_question',
+        'quote_question',
+        'fill_in_blank',
+        'map_point',
+        'map_area'
+      ].contains(type);
+  bool _usesOptions(String type) => ![
+        'fill_in_blank',
+        'theory',
+        'true_false',
+        'map_point',
+        'map_area'
+      ].contains(type);
+  bool _usesAnswers(String type) =>
+      !['theory', 'match_pairs', 'match_image', 'match_photos'].contains(type);
   String _promptLabel(String type) => switch (type) {
         'theory' => 'Заголовок теории',
         _ => 'Вопрос для ученика',
@@ -1035,19 +1788,25 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
         'image_question' => 'Ссылка на изображение и описание',
         'quote_question' => 'Цитата и источник',
         'fill_in_blank' => 'Текст с пропуском',
+        'map_point' || 'map_area' => 'JSON карты',
         _ => 'Дополнительные данные',
       };
   String _optionsLabel(String type) => switch (type) {
-        'match_pairs' || 'match_image' => 'Пары для сопоставления',
+        'match_pairs' ||
+        'match_image' ||
+        'match_photos' =>
+          'Пары для сопоставления',
         'timeline' => 'События для сортировки',
         'true_false' => 'Варианты “верно / неверно”',
         _ => 'Варианты ответа',
       };
   String _answersLabel(String type) => switch (type) {
         'timeline' => 'Правильный порядок',
-        'match_pairs' || 'match_image' => 'Правильные пары',
+        'match_pairs' || 'match_image' || 'match_photos' => 'Правильные пары',
         'true_false' => 'Правильный выбор',
         'fill_in_blank' => 'Допустимые ответы',
+        'map_point' => 'JSON правильной точки',
+        'map_area' => 'JSON эталонной области',
         _ => 'Правильный ответ',
       };
   String _explanationLabel(String type) => switch (type) {
@@ -1056,13 +1815,427 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       };
 }
 
+class _MapAuthoringEditor extends StatelessWidget {
+  final String type;
+  final LatLng center;
+  final double zoom;
+  final String tileUrlTemplate;
+  final String attribution;
+  final LatLng? pointAnswer;
+  final List<LatLng> areaPoints;
+  final LatLng? areaCenter;
+  final double? areaM2;
+  final bool advancedOpen;
+  final TextEditingController centerLatController;
+  final TextEditingController centerLngController;
+  final TextEditingController zoomController;
+  final TextEditingController tileUrlController;
+  final TextEditingController attributionController;
+  final TextEditingController pointRadiusController;
+  final TextEditingController areaCenterRadiusController;
+  final TextEditingController areaToleranceController;
+  final VoidCallback onChanged;
+  final ValueChanged<LatLng> onPointSelected;
+  final ValueChanged<LatLng> onAreaPointAdded;
+  final VoidCallback onAreaClear;
+  final VoidCallback onAreaDone;
+  final ValueChanged<bool> onAdvancedChanged;
+  final VoidCallback onCenterFromAnswer;
+
+  const _MapAuthoringEditor({
+    required this.type,
+    required this.center,
+    required this.zoom,
+    required this.tileUrlTemplate,
+    required this.attribution,
+    required this.pointAnswer,
+    required this.areaPoints,
+    required this.areaCenter,
+    required this.areaM2,
+    required this.advancedOpen,
+    required this.centerLatController,
+    required this.centerLngController,
+    required this.zoomController,
+    required this.tileUrlController,
+    required this.attributionController,
+    required this.pointRadiusController,
+    required this.areaCenterRadiusController,
+    required this.areaToleranceController,
+    required this.onChanged,
+    required this.onPointSelected,
+    required this.onAreaPointAdded,
+    required this.onAreaClear,
+    required this.onAreaDone,
+    required this.onAdvancedChanged,
+    required this.onCenterFromAnswer,
+  });
+
+  bool get _isArea => type == 'map_area';
+
+  @override
+  Widget build(BuildContext context) {
+    final payloadPreview = _prettyJson({
+      'center': {'lat': center.latitude, 'lng': center.longitude},
+      'zoom': zoom,
+      'tile_url_template': tileUrlTemplate,
+      'attribution': attribution,
+    });
+    final answerPreview = _answerPreview();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.32),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _isArea ? 'Редактор области на карте' : 'Редактор точки на карте',
+            style: GoogleFonts.lato(
+                color: AppTheme.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _MapNumberField(
+                  controller: centerLatController,
+                  label: 'Центр lat',
+                  width: 126,
+                  onChanged: onChanged),
+              _MapNumberField(
+                  controller: centerLngController,
+                  label: 'Центр lng',
+                  width: 126,
+                  onChanged: onChanged),
+              _MapNumberField(
+                  controller: zoomController,
+                  label: 'Zoom',
+                  width: 90,
+                  onChanged: onChanged),
+              if (!_isArea)
+                _MapNumberField(
+                    controller: pointRadiusController,
+                    label: 'Радиус, м',
+                    width: 122,
+                    onChanged: onChanged),
+              if (_isArea)
+                _MapNumberField(
+                    controller: areaCenterRadiusController,
+                    label: 'Центр, м',
+                    width: 122,
+                    onChanged: onChanged),
+              if (_isArea)
+                _MapNumberField(
+                    controller: areaToleranceController,
+                    label: 'Допуск',
+                    width: 112,
+                    onChanged: onChanged),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 340,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: FlutterMap(
+                key: ValueKey(
+                    '${type}_${center.latitude}_${center.longitude}_$zoom'),
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: zoom,
+                  interactionOptions: InteractionOptions(
+                      flags:
+                          _isArea ? InteractiveFlag.none : InteractiveFlag.all),
+                  onTap: !_isArea ? (_, point) => onPointSelected(point) : null,
+                  onPointerDown:
+                      _isArea ? (_, point) => onAreaPointAdded(point) : null,
+                  onPointerMove:
+                      _isArea ? (_, point) => onAreaPointAdded(point) : null,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: tileUrlTemplate,
+                    userAgentPackageName: 'history_app',
+                  ),
+                  if (_isArea && areaPoints.length >= 3)
+                    PolygonLayer(
+                      polygons: [
+                        Polygon(
+                          points: areaPoints,
+                          color: AppTheme.accent.withValues(alpha: 0.24),
+                          borderColor: AppTheme.accent,
+                          borderStrokeWidth: 3,
+                        ),
+                      ],
+                    ),
+                  if (_isArea && areaPoints.length >= 2)
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                            points: areaPoints,
+                            color: AppTheme.accent,
+                            strokeWidth: 3),
+                      ],
+                    ),
+                  MarkerLayer(
+                    markers: [
+                      if (pointAnswer != null)
+                        Marker(
+                          point: pointAnswer!,
+                          width: 46,
+                          height: 46,
+                          child: const Icon(Icons.location_on,
+                              color: AppTheme.accent, size: 42),
+                        ),
+                      if (_isArea && areaCenter != null)
+                        Marker(
+                          point: areaCenter!,
+                          width: 38,
+                          height: 38,
+                          child: const Icon(Icons.center_focus_strong,
+                              color: AppTheme.correct, size: 32),
+                        ),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Container(
+                      margin: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                          color: AppTheme.surface.withValues(alpha: 0.86),
+                          borderRadius: BorderRadius.circular(6)),
+                      child: Text(attribution,
+                          style: GoogleFonts.lato(
+                              color: AppTheme.textPrimary, fontSize: 10)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _mapActions(),
+          const SizedBox(height: 8),
+          Text(
+            _statusText(),
+            style:
+                GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 12),
+          ),
+          ExpansionTile(
+            initiallyExpanded: advancedOpen,
+            onExpansionChanged: onAdvancedChanged,
+            tilePadding: EdgeInsets.zero,
+            iconColor: AppTheme.accent,
+            collapsedIconColor: AppTheme.textSecondary,
+            title: Text('Дополнительно и JSON preview',
+                style: GoogleFonts.lato(
+                    color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
+            children: [
+              _TextInput(
+                  controller: tileUrlController,
+                  label: 'Tile URL template',
+                  onChanged: (_) => onChanged()),
+              const SizedBox(height: 10),
+              _TextInput(
+                  controller: attributionController,
+                  label: 'Attribution',
+                  onChanged: (_) => onChanged()),
+              const SizedBox(height: 10),
+              _JsonPreview(title: 'payload', value: payloadPreview),
+              const SizedBox(height: 10),
+              _JsonPreview(
+                  title: 'answers',
+                  value: answerPreview ?? 'Ответ ещё не выбран'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mapActions() {
+    if (_isArea) {
+      return Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        children: [
+          OutlinedButton.icon(
+            onPressed:
+                areaPoints.isEmpty && areaCenter == null ? null : onAreaClear,
+            icon: const Icon(Icons.backspace_outlined),
+            label: const ButtonLabel('Очистить'),
+            style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent)),
+          ),
+          ElevatedButton.icon(
+            onPressed: areaPoints.length < 3 ? null : onAreaDone,
+            icon: const Icon(Icons.done),
+            label: const ButtonLabel('Готово'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: AppTheme.onAccent),
+          ),
+          OutlinedButton.icon(
+            onPressed: areaCenter == null ? null : onCenterFromAnswer,
+            icon: const Icon(Icons.center_focus_strong),
+            label: const ButtonLabel('Центр из области'),
+            style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent)),
+          ),
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: pointAnswer == null ? null : onCenterFromAnswer,
+          icon: const Icon(Icons.center_focus_strong),
+          label: const ButtonLabel('Центр из точки'),
+          style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppTheme.accent)),
+        ),
+      ],
+    );
+  }
+
+  String _statusText() {
+    if (_isArea) {
+      if (areaCenter == null || areaM2 == null) {
+        return areaPoints.length < 3
+            ? 'Проведи контур по карте минимум из 3 точек.'
+            : 'Нажми “Готово”, чтобы рассчитать центр и площадь.';
+      }
+      return 'Центр: ${areaCenter!.latitude.toStringAsFixed(5)}, ${areaCenter!.longitude.toStringAsFixed(5)} · площадь: ${areaM2!.round()} м² · точек: ${areaPoints.length}';
+    }
+    if (pointAnswer == null)
+      return 'Кликни по карте, чтобы поставить правильную точку.';
+    return 'Точка: ${pointAnswer!.latitude.toStringAsFixed(5)}, ${pointAnswer!.longitude.toStringAsFixed(5)}';
+  }
+
+  String? _answerPreview() {
+    if (_isArea) {
+      if (areaCenter == null || areaM2 == null) return null;
+      return _prettyJson({
+        'center': {'lat': areaCenter!.latitude, 'lng': areaCenter!.longitude},
+        'area_m2': areaM2,
+        'center_radius_m': double.tryParse(
+                areaCenterRadiusController.text.replaceAll(',', '.')) ??
+            60000,
+        'area_tolerance': double.tryParse(
+                areaToleranceController.text.replaceAll(',', '.')) ??
+            0.7,
+      });
+    }
+    if (pointAnswer == null) return null;
+    return _prettyJson({
+      'lat': pointAnswer!.latitude,
+      'lng': pointAnswer!.longitude,
+      'radius_m':
+          double.tryParse(pointRadiusController.text.replaceAll(',', '.')) ??
+              25000,
+    });
+  }
+
+  String _prettyJson(dynamic value) =>
+      const JsonEncoder.withIndent('  ').convert(value);
+}
+
+class _MapNumberField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final double width;
+  final VoidCallback onChanged;
+
+  const _MapNumberField(
+      {required this.controller,
+      required this.label,
+      required this.width,
+      required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: TextField(
+        controller: controller,
+        keyboardType:
+            const TextInputType.numberWithOptions(decimal: true, signed: true),
+        onChanged: (_) => onChanged(),
+        style: GoogleFonts.lato(color: AppTheme.textPrimary),
+        decoration: _inputDecoration(label),
+      ),
+    );
+  }
+}
+
+class _JsonPreview extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _JsonPreview({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: GoogleFonts.lato(
+                  color: AppTheme.accent, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          SelectableText(value,
+              style: GoogleFonts.robotoMono(
+                  color: AppTheme.textSecondary, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapAreaStats {
+  final LatLng center;
+  final double areaM2;
+
+  const _MapAreaStats({required this.center, required this.areaM2});
+}
+
+class _ProjectedPoint {
+  final double x;
+  final double y;
+
+  const _ProjectedPoint({required this.x, required this.y});
+}
+
 class _FormDialog extends StatelessWidget {
   final String title;
   final List<Widget> fields;
   final VoidCallback onSave;
   final String? error;
 
-  const _FormDialog({required this.title, required this.fields, required this.onSave, this.error});
+  const _FormDialog(
+      {required this.title,
+      required this.fields,
+      required this.onSave,
+      this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -1077,8 +2250,15 @@ class _FormDialog extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Expanded(child: Text(title, style: GoogleFonts.playfairDisplay(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold))),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, color: AppTheme.textSecondary)),
+                  Expanded(
+                      child: Text(title,
+                          style: GoogleFonts.playfairDisplay(
+                              color: AppTheme.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold))),
+                  IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: AppTheme.textSecondary)),
                 ],
               ),
             ),
@@ -1093,13 +2273,16 @@ class _FormDialog extends StatelessWidget {
             if (error != null)
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(error!, style: GoogleFonts.lato(color: AppTheme.error, fontWeight: FontWeight.bold)),
+                child: Text(error!,
+                    style: GoogleFonts.lato(
+                        color: AppTheme.error, fontWeight: FontWeight.bold)),
               ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(onPressed: onSave, child: const Text('Сохранить')),
+                child: ElevatedButton(
+                    onPressed: onSave, child: const ButtonLabel('Сохранить')),
               ),
             ),
           ],
@@ -1114,8 +2297,14 @@ class _TextInput extends StatelessWidget {
   final String label;
   final int maxLines;
   final TextInputType? keyboardType;
+  final ValueChanged<String>? onChanged;
 
-  const _TextInput({required this.controller, required this.label, this.maxLines = 1, this.keyboardType});
+  const _TextInput(
+      {required this.controller,
+      required this.label,
+      this.maxLines = 1,
+      this.keyboardType,
+      this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -1123,6 +2312,7 @@ class _TextInput extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       style: GoogleFonts.lato(color: AppTheme.textPrimary),
       decoration: _inputDecoration(label),
     );
@@ -1134,9 +2324,13 @@ InputDecoration _inputDecoration(String label) {
     labelText: label,
     labelStyle: GoogleFonts.lato(color: AppTheme.textSecondary),
     filled: true,
-    fillColor: AppTheme.primary.withOpacity(0.35),
-    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.cardBg), borderRadius: BorderRadius.circular(8)),
-    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppTheme.accent), borderRadius: BorderRadius.circular(8)),
+    fillColor: AppTheme.primary.withValues(alpha: 0.35),
+    enabledBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.cardBg),
+        borderRadius: BorderRadius.circular(8)),
+    focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: AppTheme.accent),
+        borderRadius: BorderRadius.circular(8)),
   );
 }
 
@@ -1150,8 +2344,13 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: AppTheme.error.withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.error.withOpacity(0.4))),
-      child: Text(message, style: GoogleFonts.lato(color: AppTheme.error, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+          color: AppTheme.error.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.error.withValues(alpha: 0.4))),
+      child: ResponsiveText(message,
+          style: GoogleFonts.lato(
+              color: AppTheme.error, fontWeight: FontWeight.bold)),
     );
   }
 }
@@ -1166,13 +2365,19 @@ class _InfoBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.cardBg)),
+      decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.cardBg)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.lato(color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
+          ResponsiveText(title,
+              style: GoogleFonts.lato(
+                  color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(subtitle, style: GoogleFonts.lato(color: AppTheme.textSecondary)),
+          ResponsiveText(subtitle,
+              style: GoogleFonts.lato(color: AppTheme.textSecondary)),
         ],
       ),
     );

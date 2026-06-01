@@ -1,4 +1,5 @@
 import '../api/content_api.dart';
+import '../api/progress_api.dart';
 import '../data/app_data.dart';
 import '../models/models.dart';
 
@@ -16,8 +17,10 @@ class CatalogSnapshot {
 
 class ContentRepository {
   final ContentApi api;
+  final ProgressApi? progressApi;
+  final bool allowFallback;
 
-  const ContentRepository(this.api);
+  const ContentRepository(this.api, {this.progressApi, this.allowFallback = true});
 
   Future<CatalogSnapshot> loadCatalog() async {
     try {
@@ -25,18 +28,31 @@ class ContentRepository {
       if (courses.isEmpty) {
         return _fallback();
       }
-
       final eras = <HistoryEra>[];
       final lessons = <Lesson>[];
       for (final course in courses) {
-        final sections = await api.listSections(course.id);
+        ProgressCatalogDto? progress;
+        if (progressApi != null) {
+          try {
+            progress = await progressApi!.getCatalog(course.id);
+          } catch (_) {
+            progress = null;
+          }
+          if (progress == null) {
+            continue;
+          }
+        }
+        final progressBySkill = progress?.skillsById ?? const <String, ProgressSkillDto>{};
+        final sections = (await api.listSections(course.id))..sort((a, b) => a.position.compareTo(b.position));
         for (var i = 0; i < sections.length; i++) {
           final section = sections[i];
           final sectionLessons = <Lesson>[];
-          final units = await api.listUnits(section.id);
+          final units = (await api.listUnits(section.id))..sort((a, b) => a.position.compareTo(b.position));
           for (final unit in units) {
-            final skills = await api.listSkills(unit.id);
+            final skills = (await api.listSkills(unit.id))..sort((a, b) => a.position.compareTo(b.position));
             for (final skill in skills) {
+              final skillProgress = progressBySkill[skill.id];
+              final status = skillProgress?.status ?? 'available';
               final challenges = await api.listChallenges(skill.id);
               final questions = challenges
                   .where((challenge) => challenge.type != 'theory')
@@ -52,24 +68,27 @@ class ContentRepository {
                 description: unit.title,
                 duration: '${(challenges.length.clamp(1, 5) * 4)} мин',
                 difficulty: _difficulty(challenges),
-                isCompleted: false,
-                isLocked: false,
+                isCompleted: status == 'completed',
+                isLocked: status == 'locked',
+                progressStatus: status,
                 eraId: section.id,
                 facts: _factsFromChallenges(challenges),
                 quizQuestions: questions,
               ));
             }
           }
-          eras.add(HistoryEra(
-            id: section.id,
-            title: section.theme,
-            subtitle: section.description,
-            dateRange: course.title,
-            emoji: _emoji(i),
-            lessonsTotal: sectionLessons.isEmpty ? 1 : sectionLessons.length,
-            lessonsCompleted: 0,
-            color: _color(i),
-          ));
+          if (sectionLessons.isNotEmpty) {
+            eras.add(HistoryEra(
+              id: section.id,
+              title: section.theme,
+              subtitle: section.description,
+              dateRange: course.title,
+              emoji: _emoji(i),
+              lessonsTotal: sectionLessons.length,
+              lessonsCompleted: sectionLessons.where((lesson) => lesson.isCompleted).length,
+              color: _color(i),
+            ));
+          }
           lessons.addAll(sectionLessons);
         }
       }
@@ -83,9 +102,9 @@ class ContentRepository {
     }
   }
 
-  CatalogSnapshot _fallback() => const CatalogSnapshot(
-        eras: AppData.eras,
-        lessons: AppData.lessons,
+  CatalogSnapshot _fallback() => CatalogSnapshot(
+        eras: allowFallback ? AppData.eras : const <HistoryEra>[],
+        lessons: allowFallback ? AppData.lessons : const <Lesson>[],
       );
 
   QuizQuestion? _questionFromChallenge(ChallengeDto challenge) {

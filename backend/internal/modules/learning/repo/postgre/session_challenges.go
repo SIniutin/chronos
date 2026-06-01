@@ -20,6 +20,17 @@ func (r *repoImpl) CreateMany(ctx context.Context, challenges []domain.LessonSes
 	return nil
 }
 
+func (r *repoImpl) Append(ctx context.Context, challenge domain.LessonSessionChallenge) error {
+	const query = `
+		INSERT INTO lesson_session_challenges (id, session_id, challenge_id, position, status)
+		SELECT $1, $2, $3, COALESCE(MAX(position), 0) + 1, $4
+		FROM lesson_session_challenges
+		WHERE session_id = $2
+	`
+	_, err := r.pool.Exec(ctx, query, uuid.UUID(challenge.ID).String(), uuid.UUID(challenge.SessionID).String(), uuid.UUID(challenge.ChallengeID).String(), challenge.Status)
+	return err
+}
+
 func (r *repoImpl) GetCurrentPending(ctx context.Context, sessionID domain.LessonSessionID) (*domain.LessonSessionChallenge, error) {
 	const query = `
 		SELECT id, session_id, challenge_id, position, status

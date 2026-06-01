@@ -104,5 +104,6 @@ PLAN.md
 Screenshot*
 *.pdf
 *.json
+!backend/seeds/*.json
 *.csv
 */*.xlsx

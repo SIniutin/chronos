@@ -44,7 +44,7 @@ class HistoryTimeline extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: event.color.withOpacity(0.15),
+                        color: event.color.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(color: event.color, width: 2),
                       ),
@@ -61,7 +61,7 @@ class HistoryTimeline extends StatelessWidget {
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [event.color, event.color.withOpacity(0.2)],
+                              colors: [event.color, event.color.withValues(alpha: 0.2)],
                             ),
                           ),
                         ),

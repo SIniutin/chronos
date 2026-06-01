@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'responsive_text.dart';
 
 class BottomNav extends StatelessWidget {
   final int currentIndex;
@@ -31,37 +32,45 @@ class BottomNav extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home,
-                label: 'Главная',
-                index: 0,
-                currentIndex: currentIndex,
-                onTap: onTap,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
+                  label: 'Главная',
+                  index: 0,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
               ),
-              _NavItem(
-                icon: Icons.menu_book_outlined,
-                activeIcon: Icons.menu_book,
-                label: 'Учиться',
-                index: 1,
-                currentIndex: currentIndex,
-                onTap: onTap,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.menu_book_outlined,
+                  activeIcon: Icons.menu_book,
+                  label: 'Учиться',
+                  index: 1,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
               ),
-              _NavItem(
-                icon: Icons.quiz_outlined,
-                activeIcon: Icons.quiz,
-                label: 'Квиз',
-                index: 2,
-                currentIndex: currentIndex,
-                onTap: onTap,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.quiz_outlined,
+                  activeIcon: Icons.quiz,
+                  label: 'Квиз',
+                  index: 2,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
               ),
-              _NavItem(
-                icon: Icons.person_outline,
-                activeIcon: Icons.person,
-                label: 'Профиль',
-                index: 3,
-                currentIndex: currentIndex,
-                onTap: onTap,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: 'Профиль',
+                  index: 3,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
               ),
             ],
           ),
@@ -96,10 +105,10 @@ class _NavItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: isActive
             ? BoxDecoration(
-                color: AppTheme.accent.withOpacity(0.15),
+                color: AppTheme.accent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
               )
             : null,
@@ -112,8 +121,10 @@ class _NavItem extends StatelessWidget {
               size: 24,
             ),
             const SizedBox(height: 2),
-            Text(
+            ResponsiveText(
               label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
               style: GoogleFonts.lato(
                 color: isActive ? AppTheme.accent : AppTheme.textSecondary,
                 fontSize: 11,

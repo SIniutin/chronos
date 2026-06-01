@@ -34,8 +34,8 @@ class AppTheme {
   static Color get textSecondary => isLight ? _lightTextSecondary : _darkTextSecondary;
   static Color get onAccent => const Color(0xFF1F2933);
   static Color get elevatedSurface => isLight ? const Color(0xFFFFFBF5) : _darkSurface;
-  static Color get softShadow => isLight ? const Color(0xFFD8C7AE).withOpacity(0.28) : Colors.black.withOpacity(0.35);
-  static Color get overlayOnImage => isLight ? Colors.white.withOpacity(0.78) : Colors.black.withOpacity(0.38);
+  static Color get softShadow => isLight ? const Color(0xFFD8C7AE).withValues(alpha: 0.28) : Colors.black.withValues(alpha: 0.35);
+  static Color get overlayOnImage => isLight ? Colors.white.withValues(alpha: 0.78) : Colors.black.withValues(alpha: 0.38);
 
   static List<Color> get dailyGoalGradient => isLight
       ? const [Color(0xFFFFFBF5), Color(0xFFF0E4D1)]
@@ -49,7 +49,7 @@ class AppTheme {
       ? const [Color(0xFFFFF0D2), Color(0xFFE2B978), Color(0xFFF8F5EF)]
       : const [Color(0xFF8B4513), Color(0xFF2C1810), Color(0xFF1A1A2E)];
 
-  static ThemeData get theme => darkTheme;
+  static ThemeData get theme => isLight ? lightTheme : darkTheme;
 
   static ThemeData get darkTheme {
     return ThemeData(
@@ -59,7 +59,6 @@ class AppTheme {
         primary: accent,
         secondary: accentLight,
         surface: _darkSurface,
-        background: _darkPrimary,
         onPrimary: Color(0xFF1F2933),
         onSurface: _darkTextPrimary,
       ),
@@ -110,6 +109,69 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 20,
       ),
+      iconTheme: const IconThemeData(color: _darkTextSecondary),
+      listTileTheme: ListTileThemeData(
+        iconColor: _darkTextSecondary,
+        textColor: _darkTextPrimary,
+        titleTextStyle: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 15),
+        subtitleTextStyle: GoogleFonts.lato(color: _darkTextSecondary, fontSize: 13),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: _darkSurface,
+        titleTextStyle: GoogleFonts.playfairDisplay(color: _darkTextPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+        contentTextStyle: GoogleFonts.lato(color: _darkTextSecondary, fontSize: 14),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: _darkSurface,
+        textStyle: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 14),
+        iconColor: _darkTextSecondary,
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 14),
+        inputDecorationTheme: _inputDecoration(_darkCardBg, _darkPrimary, _darkTextSecondary),
+      ),
+      // dropdownButtonTheme: DropdownButtonThemeData(
+      //   dropdownColor: _darkSurface,
+      //   style: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 14),
+      // ),
+      inputDecorationTheme: _inputDecoration(_darkCardBg, _darkPrimary, _darkTextSecondary),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: onAccent,
+          textStyle: GoogleFonts.lato(fontWeight: FontWeight.bold),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: accent,
+          side: const BorderSide(color: accent),
+          textStyle: GoogleFonts.lato(fontWeight: FontWeight.bold),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: accent,
+          textStyle: GoogleFonts.lato(fontWeight: FontWeight.bold),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: _darkSurface,
+        selectedColor: accent.withValues(alpha: 0.2),
+        labelStyle: GoogleFonts.lato(color: _darkTextPrimary),
+        secondaryLabelStyle: GoogleFonts.lato(color: _darkTextPrimary),
+        side: const BorderSide(color: _darkCardBg),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: accent,
+        selectionColor: accent.withValues(alpha: 0.28),
+        selectionHandleColor: accent,
+      ),
+      dividerTheme: const DividerThemeData(color: _darkCardBg),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: _darkSurface,
+        contentTextStyle: GoogleFonts.lato(color: _darkTextPrimary),
+      ),
     );
   }
 
@@ -127,7 +189,6 @@ class AppTheme {
         primary: accent,
         secondary: accentLight,
         surface: lightSurface,
-        background: lightPrimary,
         onPrimary: Color(0xFF1F2933),
         onSurface: lightText,
       ),
@@ -152,20 +213,87 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 20,
       ),
+      iconTheme: const IconThemeData(color: lightMuted),
+      listTileTheme: ListTileThemeData(
+        iconColor: lightMuted,
+        textColor: lightText,
+        titleTextStyle: GoogleFonts.lato(color: lightText, fontSize: 15),
+        subtitleTextStyle: GoogleFonts.lato(color: lightMuted, fontSize: 13),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: lightSurface,
+        titleTextStyle: GoogleFonts.playfairDisplay(color: lightText, fontSize: 20, fontWeight: FontWeight.bold),
+        contentTextStyle: GoogleFonts.lato(color: lightMuted, fontSize: 14),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: lightSurface,
+        textStyle: GoogleFonts.lato(color: lightText, fontSize: 14),
+        iconColor: lightMuted,
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: GoogleFonts.lato(color: lightText, fontSize: 14),
+        inputDecorationTheme: _inputDecoration(lightCard, lightSurface, lightMuted),
+      ),
+      // dropdownButtonTheme: DropdownButtonThemeData(
+      //   dropdownColor: lightSurface,
+      //   style: GoogleFonts.lato(color: lightText, fontSize: 14),
+      // ),
       cardTheme: const CardThemeData(color: lightSurface),
-      inputDecorationTheme: OutlineInputBorder(
-        borderSide: const BorderSide(color: lightCard),
-        borderRadius: BorderRadius.circular(8),
-      ).toInputDecorationTheme(),
+      inputDecorationTheme: _inputDecoration(lightCard, lightSurface, lightMuted),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: onAccent,
+          textStyle: GoogleFonts.lato(fontWeight: FontWeight.bold),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: accent,
+          side: const BorderSide(color: accent),
+          textStyle: GoogleFonts.lato(fontWeight: FontWeight.bold),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: accent,
+          textStyle: GoogleFonts.lato(fontWeight: FontWeight.bold),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: lightSurface,
+        selectedColor: accent.withValues(alpha: 0.18),
+        labelStyle: GoogleFonts.lato(color: lightText),
+        secondaryLabelStyle: GoogleFonts.lato(color: lightText),
+        side: const BorderSide(color: lightCard),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: accent,
+        selectionColor: accent.withValues(alpha: 0.24),
+        selectionHandleColor: accent,
+      ),
+      dividerTheme: const DividerThemeData(color: lightCard),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: lightSurface,
+        contentTextStyle: GoogleFonts.lato(color: lightText),
+      ),
     );
   }
-}
 
-extension on OutlineInputBorder {
-  InputDecorationTheme toInputDecorationTheme() {
+  static InputDecorationTheme _inputDecoration(Color borderColor, Color fillColor, Color hintColor) {
+    final border = OutlineInputBorder(
+      borderSide: BorderSide(color: borderColor),
+      borderRadius: BorderRadius.circular(8),
+    );
     return InputDecorationTheme(
-      enabledBorder: this,
-      focusedBorder: copyWith(borderSide: const BorderSide(color: AppTheme.accent)),
+      filled: true,
+      fillColor: fillColor,
+      hintStyle: GoogleFonts.lato(color: hintColor),
+      labelStyle: GoogleFonts.lato(color: hintColor),
+      enabledBorder: border,
+      focusedBorder: border.copyWith(borderSide: const BorderSide(color: accent)),
+      errorBorder: border.copyWith(borderSide: const BorderSide(color: error)),
+      focusedErrorBorder: border.copyWith(borderSide: const BorderSide(color: error)),
     );
   }
 }

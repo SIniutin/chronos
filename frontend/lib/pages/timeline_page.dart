@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/history_timeline.dart';
+import '../widgets/responsive_text.dart';
 
 class TimelinePage extends StatelessWidget {
   const TimelinePage({super.key});
@@ -176,7 +177,7 @@ class TimelinePage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.accent.withOpacity(0.15), AppTheme.cardBg],
+                  colors: [AppTheme.accent.withValues(alpha: 0.15), AppTheme.cardBg],
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -201,15 +202,15 @@ class TimelinePage extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Легенда
-            Wrap(
+            const Wrap(
               spacing: 10,
               runSpacing: 6,
               children: [
-                _LegendChip(color: const Color(0xFFE8A838), label: 'Реформы Витте'),
-                _LegendChip(color: const Color(0xFF9B59B6), label: 'Николай II'),
-                _LegendChip(color: const Color(0xFFE74C3C), label: 'Революция 1905'),
-                _LegendChip(color: const Color(0xFF2ECC71), label: 'Рабочее законодательство'),
-                _LegendChip(color: const Color(0xFF5C7AEA), label: 'Фабричный надзор'),
+                _LegendChip(color: Color(0xFFE8A838), label: 'Реформы Витте'),
+                _LegendChip(color: Color(0xFF9B59B6), label: 'Николай II'),
+                _LegendChip(color: Color(0xFFE74C3C), label: 'Революция 1905'),
+                _LegendChip(color: Color(0xFF2ECC71), label: 'Рабочее законодательство'),
+                _LegendChip(color: Color(0xFF5C7AEA), label: 'Фабричный надзор'),
               ],
             ),
 
@@ -230,20 +231,25 @@ class _LegendChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 11),
-        ),
-      ],
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 190),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: ResponsiveText(
+              label,
+              style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

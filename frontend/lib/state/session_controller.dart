@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -9,6 +8,7 @@ import '../theme/app_theme.dart';
 class SessionController extends ChangeNotifier {
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
+  static const _themeModeKey = 'theme_mode';
 
   final ApiClient client;
   final FlutterSecureStorage storage;
@@ -34,9 +34,10 @@ class SessionController extends ChangeNotifier {
   bool get isAuthenticated => accessToken != null && currentUser != null;
   bool get isLightTheme => themeMode == ThemeMode.light;
 
-  void setLightTheme(bool value) {
+  Future<void> setLightTheme(bool value) async {
     themeMode = value ? ThemeMode.light : ThemeMode.dark;
     AppTheme.currentMode = themeMode;
+    await storage.write(key: _themeModeKey, value: value ? 'light' : 'dark');
     notifyListeners();
   }
 
@@ -89,6 +90,14 @@ class SessionController extends ChangeNotifier {
     try {
       accessToken = await storage.read(key: _accessTokenKey);
       refreshToken = await storage.read(key: _refreshTokenKey);
+      final storedTheme = await storage.read(key: _themeModeKey);
+      if (storedTheme == 'light') {
+        themeMode = ThemeMode.light;
+        AppTheme.currentMode = themeMode;
+      } else if (storedTheme == 'dark') {
+        themeMode = ThemeMode.dark;
+        AppTheme.currentMode = themeMode;
+      }
       if (accessToken == null || accessToken!.isEmpty) {
         accessToken = null;
         if (refreshToken != null && refreshToken!.isNotEmpty) {

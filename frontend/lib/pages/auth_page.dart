@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../api/api_client.dart';
 import '../state/session_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/responsive_text.dart';
 
 class AuthPage extends StatefulWidget {
   final VoidCallback onAuthenticated;
@@ -70,7 +71,7 @@ class _AuthPageState extends State<AuthPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 36),
-              Text(
+              ResponsiveText(
                 'История',
                 style: GoogleFonts.playfairDisplay(
                   color: AppTheme.textPrimary,
@@ -79,7 +80,7 @@ class _AuthPageState extends State<AuthPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
+              ResponsiveText(
                 _isLogin ? 'Войди, чтобы продолжить обучение' : 'Создай аккаунт ученика',
                 style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 16),
               ),
@@ -120,7 +121,7 @@ class _AuthPageState extends State<AuthPage> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: Text(
+                  child: ButtonLabel(
                     session.isBusy ? 'Подождите...' : (_isLogin ? 'Войти' : 'Зарегистрироваться'),
                     style: GoogleFonts.lato(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -147,12 +148,12 @@ class _ModeButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          backgroundColor: active ? AppTheme.accent.withOpacity(0.16) : AppTheme.surface,
+          backgroundColor: active ? AppTheme.accent.withValues(alpha: 0.16) : AppTheme.surface,
           side: BorderSide(color: active ? AppTheme.accent : AppTheme.cardBg),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        child: Text(label, style: GoogleFonts.lato(color: active ? AppTheme.accent : AppTheme.textSecondary)),
+        child: ButtonLabel(label, style: GoogleFonts.lato(color: active ? AppTheme.accent : AppTheme.textSecondary)),
       ),
     );
   }

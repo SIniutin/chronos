@@ -43,6 +43,8 @@ func (s *Service) GetNextSkill(ctx context.Context, userID domain.UserID, course
 	}
 	var completed []skillItem
 	var first *skillItem
+	var firstUnlocked *skillItem
+	previousCompleted := true
 	for i := range items {
 		item := items[i]
 		if first == nil {
@@ -51,6 +53,10 @@ func (s *Service) GetNextSkill(ctx context.Context, userID domain.UserID, course
 		progress, err := s.progress.GetSkillProgress(ctx, userID, item.skill.ID)
 		if err != nil {
 			if errors.Is(err, progress_domain.ErrNotFound) {
+				if previousCompleted && firstUnlocked == nil {
+					firstUnlocked = &item
+				}
+				previousCompleted = false
 				continue
 			}
 			return nil, err
@@ -59,16 +65,22 @@ func (s *Service) GetNextSkill(ctx context.Context, userID domain.UserID, course
 		case progress_domain.ProgressStatusInProgress:
 			return rec(domain.RecommendationTypeContinue, courseID, item.unit.ID, item.skill.ID, "continue in-progress skill"), nil
 		case progress_domain.ProgressStatusAvailable:
-			if progress.Mastery < lowMasteryThreshold {
+			if progress.Mastery > 0 && progress.Mastery < lowMasteryThreshold {
 				return rec(domain.RecommendationTypeReview, courseID, item.unit.ID, item.skill.ID, "review low mastery skill"), nil
 			}
 			return rec(domain.RecommendationTypeNewSkill, courseID, item.unit.ID, item.skill.ID, "start available skill"), nil
 		case progress_domain.ProgressStatusCompleted:
 			completed = append(completed, item)
+			previousCompleted = true
+		default:
+			previousCompleted = false
 		}
 	}
 	if first != nil && len(completed) == 0 {
 		return rec(domain.RecommendationTypeNewSkill, courseID, first.unit.ID, first.skill.ID, "start first skill"), nil
+	}
+	if firstUnlocked != nil {
+		return rec(domain.RecommendationTypeNewSkill, courseID, firstUnlocked.unit.ID, firstUnlocked.skill.ID, "start unlocked skill"), nil
 	}
 	if len(completed) > 0 {
 		best := completed[0]

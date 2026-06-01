@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../api/content_api.dart';
+import '../api/gamification_api.dart';
+import '../api/progress_api.dart';
+import '../api/recommendation_api.dart';
 import '../theme/app_theme.dart';
-import '../data/app_data.dart';
+import '../models/models.dart';
+import '../repositories/content_repository.dart';
+import '../state/session_controller.dart';
+import '../widgets/responsive_text.dart';
 import 'timeline_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -16,7 +23,13 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const stats = AppData.userStats;
+    return FutureBuilder<_HomeData>(
+      future: _loadHome(context),
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? _HomeData.fallback();
+        final stats = data.stats;
+        final featured = data.featuredLesson;
+        final fact = data.fact;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -27,38 +40,41 @@ class HomePage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Привет, Историк! 👋',
-                    style: GoogleFonts.lato(
-                      color: AppTheme.textSecondary,
-                      fontSize: 14,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ResponsiveText(
+                      'Привет, Историк! 👋',
+                      style: GoogleFonts.lato(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Продолжай учиться',
-                    style: GoogleFonts.playfairDisplay(
-                      color: AppTheme.textPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 4),
+                    ResponsiveText(
+                      'Продолжай учиться',
+                      style: GoogleFonts.playfairDisplay(
+                        color: AppTheme.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 12),
               // Streak badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: const [Color(0xFFFF6B35), Color(0xFFFF9A3C)],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF6B35), Color(0xFFFF9A3C)],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF6B35).withOpacity(0.4),
+                      color: const Color(0xFFFF6B35).withValues(alpha: 0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -124,7 +140,7 @@ class HomePage extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppTheme.accent.withOpacity(0.3),
+                color: AppTheme.accent.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -133,7 +149,7 @@ class HomePage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.accent.withOpacity(0.2),
+                    color: AppTheme.accent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text('🎯', style: TextStyle(fontSize: 28)),
@@ -156,7 +172,7 @@ class HomePage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: stats.levelProgress / 100,
-                          backgroundColor: AppTheme.primary.withOpacity(0.5),
+                          backgroundColor: AppTheme.primary.withValues(alpha: 0.5),
                           valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accent),
                           minHeight: 6,
                         ),
@@ -204,7 +220,7 @@ class HomePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.isLight ? const Color(0xFFD6A35D).withOpacity(0.28) : Colors.brown.withOpacity(0.4),
+                    color: AppTheme.isLight ? const Color(0xFFD6A35D).withValues(alpha: 0.28) : Colors.brown.withValues(alpha: 0.4),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -216,27 +232,30 @@ class HomePage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.isLight ? AppTheme.surface.withOpacity(0.75) : Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '👑 Николай II',
-                          style: GoogleFonts.lato(
-                            color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.isLight ? AppTheme.surface.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: ResponsiveText(
+                            featured == null ? '📚 Обучение' : '📚 ${featured.title}',
+                            style: GoogleFonts.lato(
+                              color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 10),
                       Icon(Icons.play_circle_filled, color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white, size: 32),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Воцарение Николая II',
+                  ResponsiveText(
+                    featured?.title ?? 'Продолжи обучение',
                     style: GoogleFonts.playfairDisplay(
                       color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white,
                       fontSize: 20,
@@ -244,23 +263,23 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    'Как началось правление последнего российского императора',
+                  ResponsiveText(
+                    featured?.description ?? 'Открой следующий доступный урок',
                     style: GoogleFonts.lato(
-                      color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white.withOpacity(0.8),
+                      color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white.withValues(alpha: 0.8),
                       fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Row(
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Icon(Icons.timer_outlined, color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text('8 мин', style: GoogleFonts.lato(color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, fontSize: 12)),
-                      const SizedBox(width: 16),
+                      ResponsiveText(featured?.duration ?? '—', style: GoogleFonts.lato(color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, fontSize: 12)),
                       Icon(Icons.signal_cellular_alt, color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text('Лёгкий', style: GoogleFonts.lato(color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, fontSize: 12)),
+                      ResponsiveText(featured?.difficulty ?? 'Следующий', style: GoogleFonts.lato(color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, fontSize: 12)),
                     ],
                   ),
                 ],
@@ -329,7 +348,7 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Манифест 17 октября 1905 года впервые закрепил гражданские свободы и создание законодательной Государственной думы.',
+                  fact,
                   style: GoogleFonts.lato(
                     color: AppTheme.textPrimary,
                     fontSize: 14,
@@ -344,7 +363,95 @@ class HomePage extends StatelessWidget {
         ],
       ),
     );
+      },
+    );
   }
+
+  Future<_HomeData> _loadHome(BuildContext context) async {
+    final session = SessionScope.of(context);
+    final content = ContentRepository(
+      ContentApi(session.client),
+      progressApi: session.isAuthenticated ? ProgressApi(session.client) : null,
+      allowFallback: false,
+    );
+    final catalog = await content.loadCatalog();
+    GamificationProfileDto? profile;
+    if (session.isAuthenticated) {
+      try {
+        profile = await GamificationApi(session.client).getProfile();
+      } catch (_) {
+        profile = null;
+      }
+    }
+    Lesson? featured;
+    if (session.isAuthenticated && catalog.courseIds.isNotEmpty) {
+      try {
+        final rec = await RecommendationApi(session.client).getNext(catalog.courseIds.first);
+        for (final lesson in catalog.lessons) {
+          if (lesson.backendSkillId == rec?.skillId) {
+            featured = lesson;
+            break;
+          }
+        }
+      } catch (_) {
+        featured = null;
+      }
+    }
+    featured ??= catalog.lessons.isNotEmpty ? catalog.lessons.first : null;
+    final completed = catalog.lessons.where((lesson) => lesson.isCompleted).length;
+    final stats = _HomeStats(
+      streak: profile?.currentStreak ?? 0,
+      totalPoints: profile?.totalXp ?? 0,
+      lessonsCompleted: completed,
+      quizzesPassed: completed,
+      levelProgress: profile == null ? 0 : profile.totalXp % 100,
+    );
+    return _HomeData(stats: stats, featuredLesson: featured, fact: _dailyFact(catalog.lessons));
+  }
+
+  String _dailyFact(List<Lesson> lessons) {
+    final facts = lessons.expand((lesson) => lesson.facts).where((fact) => fact.trim().isNotEmpty).toList();
+    if (facts.isEmpty) return 'Факт появится после наполнения уроков.';
+    final now = DateTime.now();
+    final dayKey = DateTime(now.year, now.month, now.day).difference(DateTime(2020)).inDays;
+    return facts[dayKey % facts.length];
+  }
+}
+
+class _HomeData {
+  final _HomeStats stats;
+  final Lesson? featuredLesson;
+  final String fact;
+
+  const _HomeData({required this.stats, required this.featuredLesson, required this.fact});
+
+  factory _HomeData.fallback() => const _HomeData(
+        stats: _HomeStats(
+          streak: 0,
+          totalPoints: 0,
+          lessonsCompleted: 0,
+          quizzesPassed: 0,
+          levelProgress: 0,
+        ),
+        featuredLesson: null,
+        fact: 'Факт появится после загрузки опубликованных уроков.',
+      );
+}
+
+class _HomeStats {
+  final int streak;
+  final int totalPoints;
+  final int lessonsCompleted;
+  final int quizzesPassed;
+  final int levelProgress;
+
+  const _HomeStats({
+    required this.streak,
+    required this.totalPoints,
+    required this.lessonsCompleted,
+    required this.quizzesPassed,
+    required this.levelProgress,
+  });
 }
 
 class _StatCard extends StatelessWidget {
@@ -366,24 +473,26 @@ class _StatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Column(
           children: [
             Text(icon, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 6),
-            Text(
+            ResponsiveText(
               value,
+              textAlign: TextAlign.center,
               style: GoogleFonts.playfairDisplay(
                 color: AppTheme.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
+            ResponsiveText(
               label,
+              textAlign: TextAlign.center,
               style: GoogleFonts.lato(
                 color: AppTheme.textSecondary,
                 fontSize: 11,
@@ -418,16 +527,16 @@ class _QuickAction extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.4), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(icon, style: const TextStyle(fontSize: 28)),
             const SizedBox(height: 8),
-            Text(
+            ResponsiveText(
               title,
               style: GoogleFonts.playfairDisplay(
                 color: AppTheme.textPrimary,
@@ -435,7 +544,7 @@ class _QuickAction extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
+            ResponsiveText(
               subtitle,
               style: GoogleFonts.lato(
                 color: AppTheme.textSecondary,

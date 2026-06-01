@@ -93,6 +93,66 @@ func TestSubmitAnswerSavesAttemptAndAdvances(t *testing.T) {
 	}
 }
 
+func TestWrongAnswerIsRepeatedBeforeSessionCanFinish(t *testing.T) {
+	userID := uuid.New()
+	skillID := uuid.New()
+	content := &contentMemoryRepo{challenges: makeChallenges(skillID, 1)}
+	repo := newLearningMemoryRepo()
+	uc := NewServiceFromRepository(repo, content)
+
+	session, err := uc.StartSession(context.Background(), learning_api.StartSessionInput{
+		UserID:  userID.String(),
+		SkillID: skillID.String(),
+		Limit:   1,
+	})
+	if err != nil {
+		t.Fatalf("start session failed: %v", err)
+	}
+	wrong, err := uc.SubmitAnswer(context.Background(), learning_api.SubmitAnswerInput{
+		UserID:     userID.String(),
+		SessionID:  session.ID,
+		UserAnswer: json.RawMessage(`"b"`),
+	})
+	if err != nil {
+		t.Fatalf("submit wrong failed: %v", err)
+	}
+	if wrong.IsCorrect || !wrong.HasNext {
+		t.Fatalf("expected wrong answer to repeat, got %+v", wrong)
+	}
+	sessionID := mustSessionID(t, session.ID)
+	if len(repo.queues[sessionID]) != 2 {
+		t.Fatalf("expected repeated queue item, got %+v", repo.queues[sessionID])
+	}
+	if _, err := uc.FinishSession(context.Background(), learning_api.SessionInput{UserID: userID.String(), SessionID: session.ID}); !errors.Is(err, learning_api.ErrInvalidInput) {
+		t.Fatalf("expected early finish to fail while retry is pending, got %v", err)
+	}
+	current, err := uc.GetCurrentChallenge(context.Background(), learning_api.SessionInput{UserID: userID.String(), SessionID: session.ID})
+	if err != nil {
+		t.Fatalf("get repeated current failed: %v", err)
+	}
+	if current.Challenge.ID != uuid.UUID(content.challenges[0].ID).String() {
+		t.Fatalf("expected same challenge repeated, got %+v", current)
+	}
+	correct, err := uc.SubmitAnswer(context.Background(), learning_api.SubmitAnswerInput{
+		UserID:     userID.String(),
+		SessionID:  session.ID,
+		UserAnswer: json.RawMessage(`"a"`),
+	})
+	if err != nil {
+		t.Fatalf("submit correct failed: %v", err)
+	}
+	if !correct.IsCorrect || correct.HasNext {
+		t.Fatalf("expected queue drained after retry, got %+v", correct)
+	}
+	result, err := uc.FinishSession(context.Background(), learning_api.SessionInput{UserID: userID.String(), SessionID: session.ID})
+	if err != nil {
+		t.Fatalf("finish failed: %v", err)
+	}
+	if result.Total != 2 || result.Correct != 1 || result.Percent != 50 {
+		t.Fatalf("expected attempt-based result, got %+v", result)
+	}
+}
+
 func TestFinishSessionCalculatesResultAndCallsPorts(t *testing.T) {
 	userID := uuid.New()
 	skillID := uuid.New()
@@ -207,6 +267,15 @@ func (r *learningMemoryRepo) CreateMany(_ context.Context, challenges []domain.L
 		r.queues[challenge.SessionID] = append(r.queues[challenge.SessionID], challenge)
 		r.queueByID[challenge.ID] = &cp
 	}
+	return nil
+}
+
+func (r *learningMemoryRepo) Append(_ context.Context, challenge domain.LessonSessionChallenge) error {
+	queue := r.queues[challenge.SessionID]
+	challenge.Position = len(queue) + 1
+	cp := challenge
+	r.queues[challenge.SessionID] = append(queue, challenge)
+	r.queueByID[challenge.ID] = &cp
 	return nil
 }
 

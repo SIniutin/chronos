@@ -15,7 +15,7 @@ func TestLoadFileParsesStructuredHistorySeed(t *testing.T) {
 		t.Fatalf("unexpected course title: %q", seed.Course.Title)
 	}
 	sections, units, skills, challenges := countSeed(seed)
-	if sections != 2 || units != 6 || skills != 13 || challenges != 71 {
+	if sections != 39 || units != 50 || skills != 57 || challenges != 289 {
 		t.Fatalf("unexpected counts: sections=%d units=%d skills=%d challenges=%d", sections, units, skills, challenges)
 	}
 	for _, section := range seed.Sections {

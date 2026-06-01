@@ -54,10 +54,13 @@ class _HistoryAppState extends State<HistoryApp> {
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: AppTheme.isLight ? Brightness.dark : Brightness.light,
-        statusBarBrightness: AppTheme.isLight ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness:
+            AppTheme.isLight ? Brightness.dark : Brightness.light,
+        statusBarBrightness:
+            AppTheme.isLight ? Brightness.light : Brightness.dark,
         systemNavigationBarColor: AppTheme.secondary,
-        systemNavigationBarIconBrightness: AppTheme.isLight ? Brightness.dark : Brightness.light,
+        systemNavigationBarIconBrightness:
+            AppTheme.isLight ? Brightness.dark : Brightness.light,
       ),
     );
     return SessionScope(
@@ -90,17 +93,21 @@ class _AppFlowState extends State<AppFlow> {
     if (session.isRestoring) {
       return Scaffold(
         backgroundColor: AppTheme.primary,
-        body: const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+        body: const Center(
+            child: CircularProgressIndicator(color: AppTheme.accent)),
       );
     }
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
       child: switch (_step) {
-        0 => SplashScreen(key: const ValueKey(0), onDone: () => setState(() => _step = 1)),
-        1 => OnboardingScreen(key: const ValueKey(1), onDone: () => setState(() => _step = 2)),
+        0 => SplashScreen(
+            key: const ValueKey(0), onDone: () => setState(() => _step = 1)),
+        1 => OnboardingScreen(
+            key: const ValueKey(1), onDone: () => setState(() => _step = 2)),
         _ => session.isAuthenticated
             ? const MainScreen(key: ValueKey(2))
-            : AuthPage(key: const ValueKey(3), onAuthenticated: () => setState(() {})),
+            : AuthPage(
+                key: const ValueKey(3), onAuthenticated: () => setState(() {})),
       },
     );
   }
@@ -148,7 +155,9 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = SessionScope.of(context).themeMode;
     return Scaffold(
+      key: ValueKey(themeMode),
       backgroundColor: AppTheme.primary,
       appBar: _currentIndex == 0
           ? AppBar(
@@ -172,10 +181,12 @@ class _MainScreenState extends State<MainScreen> {
               actions: [
                 IconButton(
                   icon: Icon(Icons.search, color: AppTheme.textSecondary),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage())),
+                  onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SearchPage())),
                 ),
                 IconButton(
-                  icon: Icon(Icons.notifications_outlined, color: AppTheme.textSecondary),
+                  icon: Icon(Icons.notifications_outlined,
+                      color: AppTheme.textSecondary),
                   onPressed: () {},
                 ),
               ],

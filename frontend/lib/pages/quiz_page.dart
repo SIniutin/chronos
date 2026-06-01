@@ -41,6 +41,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   bool _backendStarted = false;
   bool _backendBusy = false;
   String? _backendError;
+  SessionController? _sessionController;
   String? _selectedOptionId;
   final Set<String> _selectedOptionIds = {};
   final List<String> _orderedOptionIds = [];
@@ -70,7 +71,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     super.didChangeDependencies();
     if (_usesBackend && !_backendStarted) {
       _backendStarted = true;
-      _learningApi = LearningApi(SessionScope.of(context).client);
+      _sessionController = SessionScope.of(context);
+      _learningApi = LearningApi(_sessionController!.client);
       _startBackendSession();
     }
   }
@@ -142,7 +144,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     if (session == null ||
         current == null ||
         _backendBusy ||
-        _backendAnswer != null) return;
+        _backendAnswer != null) {
+      return;
+    }
 
     setState(() {
       _backendBusy = true;
@@ -224,6 +228,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     });
     try {
       final result = await _learningApi!.finishSession(session.id);
+      _sessionController?.notifyProgressChanged();
       if (!mounted) return;
       setState(() {
         _backendResult = result;
@@ -872,13 +877,16 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
 
   bool _canSubmitBackendAnswer(ChallengeDto challenge) {
     if (challenge.type == 'theory') return true;
-    if (challenge.type == 'fill_in_blank')
+    if (challenge.type == 'fill_in_blank') {
       return _fillController.text.trim().isNotEmpty;
-    if (challenge.type == 'multiple_choice')
+    }
+    if (challenge.type == 'multiple_choice') {
       return _selectedOptionIds.isNotEmpty;
-    if (challenge.type == 'timeline')
+    }
+    if (challenge.type == 'timeline') {
       return _orderedOptionIds.isNotEmpty &&
           _orderedOptionIds.length == _options(challenge.options).length;
+    }
     if (challenge.type == 'match_pairs' ||
         challenge.type == 'match_image' ||
         challenge.type == 'match_photos') {
@@ -887,10 +895,11 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           _pairSelections.length == groups.left.length;
     }
     if (challenge.type == 'map_point') return _mapPointAnswer != null;
-    if (challenge.type == 'map_area')
+    if (challenge.type == 'map_area') {
       return _mapAreaDone &&
           _mapAreaAnswer != null &&
           _mapAreaAnswer!.areaM2 > 0;
+    }
     if (_isSingleAnswerType(challenge.type)) return _selectedOptionId != null;
     return false;
   }
@@ -957,8 +966,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   String _feedbackExplanation(
       ChallengeDto challenge, SubmitAnswerResultDto result) {
     if (result.isCorrect) return '';
-    if (challenge.explanation.trim().isNotEmpty)
+    if (challenge.explanation.trim().isNotEmpty) {
       return challenge.explanation.trim();
+    }
     if (result.mistakes.isNotEmpty) return result.mistakes.join('\n');
     return 'Разберись с подсказкой и попробуй этот вопрос ещё раз.';
   }
@@ -1091,19 +1101,23 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
 
   String _optionId(dynamic option, int index) {
     if (option is Map && option['id'] != null) return option['id'].toString();
-    if (option is Map && option['value'] != null)
+    if (option is Map && option['value'] != null) {
       return option['value'].toString();
+    }
     return index.toString();
   }
 
   String _optionText(dynamic option) {
-    if (option is Map && option['text'] != null)
+    if (option is Map && option['text'] != null) {
       return option['text'].toString();
-    if (option is Map && option['label'] != null)
+    }
+    if (option is Map && option['label'] != null) {
       return option['label'].toString();
+    }
     if (option is Map && option['alt'] != null) return option['alt'].toString();
-    if (option is Map && option['value'] != null)
+    if (option is Map && option['value'] != null) {
       return option['value'].toString();
+    }
     return option.toString();
   }
 

@@ -38,10 +38,14 @@ For `map_area`, the Flutter UI lets the learner draw an approximate contour, the
 
 The normalizer extracts potential map points, map areas, and photo matches into `map_points`, `map_areas`, and `photo_matches` on each normalized skill. Coordinates come from a small local reviewable dictionary for places explicitly mentioned in the Figma text. Image URLs are placeholders unless already present in source data, so generated photo tasks are marked `draft` with a `needs_review` tag.
 
-To merge normalized interactive candidates into the structured seed:
+To append normalized themes that are not covered by the curated opening
+sections, generate their base challenges, and merge normalized interactive
+candidates into the structured seed:
 
 ```bash
 python3 ../scripts/import_figma_course.py --no-fetch
 ```
 
-The merge is idempotent, keeps existing challenges, appends missing interactive tasks after current positions, and validates `answers` references for map/photo formats.
+The merge is idempotent, keeps existing curated sections and challenges,
+appends missing normalized themes and interactive tasks after current
+positions, and validates `answers` references for map/photo formats.

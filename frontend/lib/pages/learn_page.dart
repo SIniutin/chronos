@@ -36,7 +36,8 @@ class _LearnPageState extends State<LearnPage> {
     setState(() {
       _catalog = ContentRepository(
         ContentApi(session.client),
-        progressApi: session.isAuthenticated ? ProgressApi(session.client) : null,
+        progressApi:
+            session.isAuthenticated ? ProgressApi(session.client) : null,
         allowFallback: false,
       ).loadCatalog();
     });
@@ -48,12 +49,16 @@ class _LearnPageState extends State<LearnPage> {
       future: _catalog,
       builder: (context, snapshot) {
         final catalog = snapshot.data;
-        if (catalog == null && snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+        if (catalog == null &&
+            snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.accent));
         }
         final eras = catalog?.eras ?? const <HistoryEra>[];
         final lessons = catalog?.lessons ?? const <Lesson>[];
-        final courseId = catalog?.courseIds.isNotEmpty == true ? catalog!.courseIds.first : null;
+        final courseId = catalog?.courseIds.isNotEmpty == true
+            ? catalog!.courseIds.first
+            : null;
         final session = SessionScope.of(context);
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -89,18 +94,23 @@ class _LearnPageState extends State<LearnPage> {
                   decoration: InputDecoration(
                     hintText: 'Поиск по эпохам...',
                     hintStyle: GoogleFonts.lato(color: AppTheme.textSecondary),
-                    prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
+                    prefixIcon:
+                        Icon(Icons.search, color: AppTheme.textSecondary),
                     filled: false,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               if (courseId != null && session.isAuthenticated) ...[
-                _NextLessonCard(courseId: courseId, lessons: lessons, onCompleted: _reloadCatalog),
+                _NextLessonCard(
+                    courseId: courseId,
+                    lessons: lessons,
+                    onCompleted: _reloadCatalog),
                 const SizedBox(height: 20),
               ],
               ...eras.map((era) => Padding(
@@ -110,7 +120,8 @@ class _LearnPageState extends State<LearnPage> {
                       onTap: () => Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => LessonsListPage(era: era, lessons: lessons),
+                          builder: (_) =>
+                              LessonsListPage(era: era, lessons: lessons),
                         ),
                       ).then((value) {
                         if (value == true && mounted) _reloadCatalog();
@@ -128,7 +139,8 @@ class _LearnPageState extends State<LearnPage> {
                   ),
                   child: Text(
                     'Пока нет доступных уроков',
-                    style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 14),
+                    style: GoogleFonts.lato(
+                        color: AppTheme.textSecondary, fontSize: 14),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -146,7 +158,10 @@ class _NextLessonCard extends StatefulWidget {
   final List<Lesson> lessons;
   final VoidCallback onCompleted;
 
-  const _NextLessonCard({required this.courseId, required this.lessons, required this.onCompleted});
+  const _NextLessonCard(
+      {required this.courseId,
+      required this.lessons,
+      required this.onCompleted});
 
   @override
   State<_NextLessonCard> createState() => _NextLessonCardState();
@@ -158,14 +173,17 @@ class _NextLessonCardState extends State<_NextLessonCard> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _recommendation = RecommendationApi(SessionScope.of(context).client).getNext(widget.courseId);
+    _recommendation = RecommendationApi(SessionScope.of(context).client)
+        .getNext(widget.courseId);
   }
 
   @override
   void didUpdateWidget(covariant _NextLessonCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.courseId != widget.courseId || oldWidget.lessons != widget.lessons) {
-      _recommendation = RecommendationApi(SessionScope.of(context).client).getNext(widget.courseId);
+    if (oldWidget.courseId != widget.courseId ||
+        oldWidget.lessons != widget.lessons) {
+      _recommendation = RecommendationApi(SessionScope.of(context).client)
+          .getNext(widget.courseId);
     }
   }
 
@@ -199,7 +217,8 @@ class _NextLessonCardState extends State<_NextLessonCard> {
             decoration: BoxDecoration(
               color: AppTheme.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.accent.withValues(alpha: 0.35)),
+              border:
+                  Border.all(color: AppTheme.accent.withValues(alpha: 0.35)),
             ),
             child: Row(
               children: [
@@ -237,7 +256,8 @@ class _NextLessonCardState extends State<_NextLessonCard> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, color: AppTheme.accent, size: 16),
+                const Icon(Icons.arrow_forward_ios,
+                    color: AppTheme.accent, size: 16),
               ],
             ),
           ),
@@ -285,11 +305,18 @@ class _EraCard extends StatelessWidget {
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: era.lessonsCompleted > 0 ? color.withValues(alpha: 0.4) : AppTheme.cardBg,
+            color: era.lessonsCompleted > 0
+                ? color.withValues(alpha: 0.4)
+                : AppTheme.cardBg,
             width: 1.5,
           ),
           boxShadow: era.lessonsCompleted > 0
-              ? [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))]
+              ? [
+                  BoxShadow(
+                      color: color.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))
+                ]
               : null,
         ),
         child: Column(
@@ -305,7 +332,8 @@ class _EraCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
-                    child: Text(era.emoji, style: const TextStyle(fontSize: 28)),
+                    child:
+                        Text(era.emoji, style: const TextStyle(fontSize: 28)),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -387,7 +415,11 @@ class LessonsListPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.primary,
       appBar: AppBar(
-        title: Text(era.title),
+        title: Text(
+          era.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         backgroundColor: AppTheme.primary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: AppTheme.accent),
@@ -403,38 +435,49 @@ class LessonsListPage extends StatelessWidget {
               children: [
                 Text(era.emoji, style: const TextStyle(fontSize: 36)),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      era.subtitle,
-                      style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 14),
-                    ),
-                    Text(
-                      era.dateRange,
-                      style: GoogleFonts.playfairDisplay(
-                        color: AppTheme.accent,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        era.subtitle,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.lato(
+                            color: AppTheme.textSecondary, fontSize: 14),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        era.dateRange,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.playfairDisplay(
+                          color: AppTheme.accent,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
             ...eraLessons.map((lesson) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _LessonCard(
-                lesson: lesson,
-                onTap: () => Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(builder: (_) => LessonPage(lesson: lesson)),
-                ).then((value) {
-                  if (value == true && context.mounted) Navigator.pop(context, true);
-                }),
-              ),
-            )),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _LessonCard(
+                    lesson: lesson,
+                    onTap: () => Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => LessonPage(lesson: lesson)),
+                    ).then((value) {
+                      if (value == true && context.mounted) {
+                        Navigator.pop(context, true);
+                      }
+                    }),
+                  ),
+                )),
             if (eraLessons.isEmpty)
               Center(
                 child: Padding(
@@ -522,7 +565,9 @@ class _LessonCard extends StatelessWidget {
                   ResponsiveText(
                     lesson.title,
                     style: GoogleFonts.playfairDisplay(
-                      color: lesson.isLocked ? AppTheme.textSecondary : AppTheme.textPrimary,
+                      color: lesson.isLocked
+                          ? AppTheme.textSecondary
+                          : AppTheme.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
@@ -533,17 +578,22 @@ class _LessonCard extends StatelessWidget {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(Icons.timer_outlined, color: AppTheme.textSecondary, size: 12),
-                      ResponsiveText(lesson.duration, style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 12)),
+                      Icon(Icons.timer_outlined,
+                          color: AppTheme.textSecondary, size: 12),
+                      ResponsiveText(lesson.duration,
+                          style: GoogleFonts.lato(
+                              color: AppTheme.textSecondary, fontSize: 12)),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppTheme.cardBg,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: ResponsiveText(
                           lesson.difficulty,
-                          style: GoogleFonts.lato(color: AppTheme.textSecondary, fontSize: 10),
+                          style: GoogleFonts.lato(
+                              color: AppTheme.textSecondary, fontSize: 10),
                         ),
                       ),
                     ],

@@ -1367,11 +1367,13 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       throw const FormatException('Map tile settings are incomplete');
     }
     if (_type.text == 'map_point') {
-      if (_mapPointAnswer == null)
+      if (_mapPointAnswer == null) {
         throw const FormatException('Map point is required');
+      }
       final radius = _doubleValue(_mapPointRadius.text);
-      if (radius == null || radius <= 0)
+      if (radius == null || radius <= 0) {
         throw const FormatException('Map point radius is required');
+      }
     }
     if (_type.text == 'map_area') {
       if (_mapAreaPoints.isNotEmpty && _mapAreaPoints.length < 3) {
@@ -1635,7 +1637,9 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     if (type == 'theory' ||
         type == 'fill_in_blank' ||
         type == 'map_point' ||
-        type == 'map_area') return [];
+        type == 'map_area') {
+      return [];
+    }
     if (type == 'true_false') {
       return [
         {'id': 'true', 'text': 'Верно'},
@@ -1750,8 +1754,9 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       final number = int.tryParse(part);
       final index =
           number != null ? number - 1 : part.codeUnitAt(0) - 'a'.codeUnitAt(0);
-      if (index >= 0 && index < optionCount && !indexes.contains(index))
+      if (index >= 0 && index < optionCount && !indexes.contains(index)) {
         indexes.add(index);
+      }
     }
     return indexes.isEmpty && optionCount > 0 ? [0] : indexes;
   }
@@ -2118,8 +2123,9 @@ class _MapAuthoringEditor extends StatelessWidget {
       }
       return 'Центр: ${areaCenter!.latitude.toStringAsFixed(5)}, ${areaCenter!.longitude.toStringAsFixed(5)} · площадь: ${areaM2!.round()} м² · точек: ${areaPoints.length}';
     }
-    if (pointAnswer == null)
+    if (pointAnswer == null) {
       return 'Кликни по карте, чтобы поставить правильную точку.';
+    }
     return 'Точка: ${pointAnswer!.latitude.toStringAsFixed(5)}, ${pointAnswer!.longitude.toStringAsFixed(5)}';
   }
 

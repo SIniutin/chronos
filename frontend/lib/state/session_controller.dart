@@ -34,11 +34,15 @@ class SessionController extends ChangeNotifier {
   bool get isAuthenticated => accessToken != null && currentUser != null;
   bool get isLightTheme => themeMode == ThemeMode.light;
 
+  void notifyProgressChanged() {
+    notifyListeners();
+  }
+
   Future<void> setLightTheme(bool value) async {
     themeMode = value ? ThemeMode.light : ThemeMode.dark;
     AppTheme.currentMode = themeMode;
-    await storage.write(key: _themeModeKey, value: value ? 'light' : 'dark');
     notifyListeners();
+    await storage.write(key: _themeModeKey, value: value ? 'light' : 'dark');
   }
 
   Future<void> login(String identity, String password) async {

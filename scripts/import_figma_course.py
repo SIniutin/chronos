@@ -40,6 +40,23 @@ SUPPORTED_TYPES = {
     "map_area",
 }
 
+CURATED_NORMALIZED_THEMES = {
+    "РЕФОРМЫ ВИТТЕ",
+    "Россия на рубеже XIX–XX.Смерть Александра III и воцарение Николая II.",
+    "КЛЮЧЕВЫЕ СОБЫТИЯ НА РУБЕЖЕ XIX–XX.",
+    "Смена политического курса не происходит, но усиливается конфликт с обществом",
+    "Революция 1905–1907 гг.",
+    "Рабочее законодательство. Забастовки",
+    "Третья Государственная дума и столыпинский курс",
+    "В. И. Ульянов‑Ленин. Российская социал‑демократическая рабочая партия. Большевизм и меньшевизм",
+}
+
+# The Figma layout places this heading after its explanatory block. Reuse the
+# already normalized neighboring material so the generated lesson is not empty.
+NORMALIZED_SKILL_FACT_SOURCES = {
+    "«Красногвардейская атака на капитал»": "Национализация и установление государственного контроля над экономикой",
+}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Fetch Figma course text and enrich the history seed.")
@@ -132,10 +149,12 @@ def extract_figma_text(figma: dict[str, Any]) -> dict[str, Any]:
 
 
 def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str, Any] | None = None) -> dict[str, int]:
-    all_facts = collect_all_facts(seed)
     figma_texts = [node.get("text", "") for node in raw.get("text_nodes", []) if isinstance(node, dict)]
     normalized_skills = collect_normalized_skills(normalized) if normalized else []
     added = Counter()
+    if normalized:
+        added.update(append_missing_normalized_sections(seed, normalized, normalized_skills))
+    all_facts = collect_all_facts(seed)
 
     for section in seed.get("sections", []):
         for unit in section.get("units", []):
@@ -185,6 +204,93 @@ def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str,
     return dict(added)
 
 
+def append_missing_normalized_sections(
+    seed: dict[str, Any],
+    normalized: dict[str, Any],
+    normalized_skills: list[dict[str, Any]],
+) -> dict[str, int]:
+    existing_themes = {norm(section.get("theme", "")) for section in seed.get("sections", [])}
+    curated_themes = {norm(theme) for theme in CURATED_NORMALIZED_THEMES}
+    skills_by_title = {norm(skill.get("title", "")): skill for skill in normalized_skills}
+    added = Counter()
+
+    for section in normalized.get("sections", []):
+        theme = clean_text(section.get("theme", ""))
+        if not theme or norm(theme) in curated_themes or norm(theme) in existing_themes:
+            continue
+        units = []
+        for unit in section.get("units", []):
+            skills = [
+                normalized_skill_to_seed(skill, skills_by_title)
+                for skill in unit.get("skills", [])
+                if clean_text(skill.get("title", ""))
+            ]
+            if not skills:
+                continue
+            units.append({"title": clean_text(unit.get("title", "")) or theme, "skills": skills})
+            added["units"] += 1
+            added["skills"] += len(skills)
+        if not units:
+            continue
+        seed.setdefault("sections", []).append(
+            {
+                "theme": theme,
+                "description": clean_text(section.get("description", "")) or f"Материалы раздела «{theme}».",
+                "units": units,
+            }
+        )
+        existing_themes.add(norm(theme))
+        added["sections"] += 1
+    return dict(added)
+
+
+def normalized_skill_to_seed(skill: dict[str, Any], skills_by_title: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    title = clean_text(skill.get("title", ""))
+    facts = clean_list(skill.get("facts", []))
+    if not facts:
+        source_title = NORMALIZED_SKILL_FACT_SOURCES.get(title)
+        source = skills_by_title.get(norm(source_title or ""))
+        if source:
+            facts = clean_list(source.get("facts", []))
+    cause_effect = clean_pairs(skill.get("cause_effect", []))
+    results = clean_list(skill.get("results", []))
+    material = learning_facts({"facts": facts, "results": results, "cause_effect": cause_effect}, [])
+    return {
+        "title": title,
+        "facts": facts,
+        "cause_effect": cause_effect,
+        "results": results,
+        "challenges_draft": draft_challenges(material),
+        "challenges": [],
+    }
+
+
+def draft_challenges(facts: list[str]) -> list[dict[str, Any]]:
+    correct = facts[0] if facts else "Материал темы требует ручной проверки."
+    alternative = facts[1] if len(facts) > 1 else "Нет дополнительного утверждения."
+    return [
+        {
+            "type": "theory_card",
+            "prompt": "Изучи краткий материал",
+            "body": "\n".join(facts[:4]),
+            "payload": {},
+        },
+        {
+            "type": "select_option",
+            "prompt": "Выбери правильный ответ",
+            "body": correct,
+            "payload": {
+                "options": [
+                    {"id": "a", "text": correct},
+                    {"id": "b", "text": alternative},
+                    {"id": "c", "text": "Нет верного ответа"},
+                ]
+            },
+            "answer": {"correct_option_id": "a"},
+        },
+    ]
+
+
 def collect_normalized_skills(normalized: dict[str, Any] | None) -> list[dict[str, Any]]:
     if not normalized:
         return []
@@ -222,7 +328,9 @@ def token_set(value: str) -> set[str]:
 
 
 def merged_facts(skill: dict[str, Any], figma_texts: list[str]) -> list[str]:
-    facts = [clean_text(item) for item in skill.get("facts", []) if clean_text(item)]
+    facts = learning_facts(skill, figma_texts)
+    if facts:
+        return facts
     title_norm = norm(skill.get("title", ""))
     for text in figma_texts:
         value = clean_text(text)
@@ -235,6 +343,19 @@ def merged_facts(skill: dict[str, Any], figma_texts: list[str]) -> list[str]:
         if looks_like_fact(value):
             facts.append(value)
     return facts
+
+
+def learning_facts(skill: dict[str, Any], figma_texts: list[str]) -> list[str]:
+    facts = clean_list(skill.get("facts", []))
+    if facts:
+        return facts
+    results = clean_list(skill.get("results", []))
+    if results:
+        return results
+    pairs = clean_pairs(skill.get("cause_effect", []))
+    if pairs:
+        return [f"{item['cause']} — {item['effect']}." for item in pairs]
+    return []
 
 
 def theory_challenge(skill: dict[str, Any], facts: list[str]) -> dict[str, Any]:
@@ -561,7 +682,7 @@ def collect_all_facts(seed: dict[str, Any]) -> list[str]:
     for section in seed.get("sections", []):
         for unit in section.get("units", []):
             for skill in unit.get("skills", []):
-                facts.extend(clean_text(item) for item in skill.get("facts", []) if clean_text(item))
+                facts.extend(learning_facts(skill, []))
     return facts
 
 
@@ -574,7 +695,9 @@ def best_fact(facts: list[str]) -> str:
 
 def same_kind_distractors(correct: str, local_facts: list[str], all_facts: list[str]) -> list[str]:
     has_year = bool(re.search(r"\b(18\d{2}|19\d{2})\b", correct))
-    pool = [fact for fact in [*local_facts, *all_facts] if fact and norm(fact) != norm(correct)]
+    local_keys = {norm(fact) for fact in local_facts}
+    unrelated = [fact for fact in all_facts if fact and norm(fact) not in local_keys]
+    pool = [*unrelated, *[fact for fact in local_facts if fact and norm(fact) != norm(correct)]]
     if has_year:
         dated = [fact for fact in pool if re.search(r"\b(18\d{2}|19\d{2})\b", fact)]
         if len(dated) >= 2:
@@ -606,6 +729,29 @@ def option_id(index: int) -> str:
 
 def clean_text(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value).strip())
+
+
+def clean_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return unique([clean_text(value) for value in values if clean_text(value)])
+
+
+def clean_pairs(values: Any) -> list[dict[str, str]]:
+    if not isinstance(values, list):
+        return []
+    out = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        cause = clean_text(value.get("cause", ""))
+        effect = clean_text(value.get("effect", ""))
+        key = (norm(cause), norm(effect))
+        if cause and effect and key not in seen:
+            seen.add(key)
+            out.append({"cause": cause, "effect": effect})
+    return out
 
 
 def norm(value: Any) -> str:

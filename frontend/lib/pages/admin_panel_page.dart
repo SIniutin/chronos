@@ -578,11 +578,62 @@ class _UsersRolePanelState extends State<_UsersRolePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = AuthApi(SessionScope.of(context).client);
-    final progress = ProgressApi(SessionScope.of(context).client);
+    final session = SessionScope.of(context);
+    final auth = AuthApi(session.client);
+    final progress = ProgressApi(session.client);
+    final currentUser = session.currentUser;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        Text('Тестовый прогресс',
+            style: GoogleFonts.playfairDisplay(
+                color: AppTheme.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.cardBg),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ResponsiveText(
+                'Быстро отметить весь курс пройденным для вашего аккаунта.',
+                style: GoogleFonts.lato(
+                    color: AppTheme.textSecondary, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: currentUser?.id == null || currentUser!.id!.isEmpty
+                    ? null
+                    : () async {
+                        try {
+                          await progress.completeAllForUser(currentUser.id!);
+                          if (!mounted) return;
+                          setState(() => _message =
+                              'Весь курс открыт для вашего аккаунта');
+                        } on ApiException catch (e) {
+                          if (!mounted) return;
+                          setState(() => _message = e.message);
+                        }
+                      },
+                icon: const Icon(Icons.workspace_premium_outlined),
+                label: const ButtonLabel('Открыть весь курс себе'),
+              ),
+            ],
+          ),
+        ),
+        if (_message != null) ...[
+          const SizedBox(height: 14),
+          ResponsiveText(_message!,
+              style: GoogleFonts.lato(
+                  color: AppTheme.accent, fontWeight: FontWeight.bold)),
+        ],
+        const SizedBox(height: 24),
         Text('Смена роли',
             style: GoogleFonts.playfairDisplay(
                 color: AppTheme.textPrimary,
@@ -676,12 +727,6 @@ class _UsersRolePanelState extends State<_UsersRolePanel> {
             icon: const Icon(Icons.done_all_outlined),
             label: const ButtonLabel('Отметить всё пройденным'),
           ),
-        ],
-        if (_message != null) ...[
-          const SizedBox(height: 14),
-          ResponsiveText(_message!,
-              style: GoogleFonts.lato(
-                  color: AppTheme.accent, fontWeight: FontWeight.bold)),
         ],
       ],
     );
@@ -1141,6 +1186,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
   }
 
   Future<void> _pickAndUploadImage(String type) async {
+    final client = SessionScope.of(context).client;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'],
@@ -1154,8 +1200,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       _error = null;
     });
     try {
-      final upload =
-          await MediaApi(SessionScope.of(context).client).uploadImage(
+      final upload = await MediaApi(client).uploadImage(
         filename: file.name,
         bytes: bytes,
         contentType: _contentTypeForName(file.name),

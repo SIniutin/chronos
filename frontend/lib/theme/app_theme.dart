@@ -30,12 +30,19 @@ class AppTheme {
   static Color get secondary => isLight ? _lightSecondary : _darkSecondary;
   static Color get cardBg => isLight ? _lightCardBg : _darkCardBg;
   static Color get surface => isLight ? _lightSurface : _darkSurface;
-  static Color get textPrimary => isLight ? _lightTextPrimary : _darkTextPrimary;
-  static Color get textSecondary => isLight ? _lightTextSecondary : _darkTextSecondary;
+  static Color get textPrimary =>
+      isLight ? _lightTextPrimary : _darkTextPrimary;
+  static Color get textSecondary =>
+      isLight ? _lightTextSecondary : _darkTextSecondary;
   static Color get onAccent => const Color(0xFF1F2933);
-  static Color get elevatedSurface => isLight ? const Color(0xFFFFFBF5) : _darkSurface;
-  static Color get softShadow => isLight ? const Color(0xFFD8C7AE).withValues(alpha: 0.28) : Colors.black.withValues(alpha: 0.35);
-  static Color get overlayOnImage => isLight ? Colors.white.withValues(alpha: 0.78) : Colors.black.withValues(alpha: 0.38);
+  static Color get elevatedSurface =>
+      isLight ? const Color(0xFFFFFBF5) : _darkSurface;
+  static Color get softShadow => isLight
+      ? const Color(0xFFD8C7AE).withValues(alpha: 0.28)
+      : Colors.black.withValues(alpha: 0.35);
+  static Color get overlayOnImage => isLight
+      ? Colors.white.withValues(alpha: 0.78)
+      : Colors.black.withValues(alpha: 0.38);
 
   static List<Color> get dailyGoalGradient => isLight
       ? const [Color(0xFFFFFBF5), Color(0xFFF0E4D1)]
@@ -114,12 +121,15 @@ class AppTheme {
         iconColor: _darkTextSecondary,
         textColor: _darkTextPrimary,
         titleTextStyle: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 15),
-        subtitleTextStyle: GoogleFonts.lato(color: _darkTextSecondary, fontSize: 13),
+        subtitleTextStyle:
+            GoogleFonts.lato(color: _darkTextSecondary, fontSize: 13),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: _darkSurface,
-        titleTextStyle: GoogleFonts.playfairDisplay(color: _darkTextPrimary, fontSize: 20, fontWeight: FontWeight.bold),
-        contentTextStyle: GoogleFonts.lato(color: _darkTextSecondary, fontSize: 14),
+        titleTextStyle: GoogleFonts.playfairDisplay(
+            color: _darkTextPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+        contentTextStyle:
+            GoogleFonts.lato(color: _darkTextSecondary, fontSize: 14),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: _darkSurface,
@@ -128,13 +138,15 @@ class AppTheme {
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
         textStyle: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 14),
-        inputDecorationTheme: _inputDecoration(_darkCardBg, _darkPrimary, _darkTextSecondary),
+        inputDecorationTheme:
+            _inputDecoration(_darkCardBg, _darkPrimary, _darkTextSecondary),
       ),
       // dropdownButtonTheme: DropdownButtonThemeData(
       //   dropdownColor: _darkSurface,
       //   style: GoogleFonts.lato(color: _darkTextPrimary, fontSize: 14),
       // ),
-      inputDecorationTheme: _inputDecoration(_darkCardBg, _darkPrimary, _darkTextSecondary),
+      inputDecorationTheme:
+          _inputDecoration(_darkCardBg, _darkPrimary, _darkTextSecondary),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: accent,
@@ -193,17 +205,22 @@ class AppTheme {
         onSurface: lightText,
       ),
       textTheme: GoogleFonts.playfairDisplayTextTheme().copyWith(
-        displayLarge: GoogleFonts.playfairDisplay(color: lightText, fontSize: 32, fontWeight: FontWeight.bold),
-        displayMedium: GoogleFonts.playfairDisplay(color: lightText, fontSize: 24, fontWeight: FontWeight.bold),
-        headlineMedium: GoogleFonts.playfairDisplay(color: lightText, fontSize: 20, fontWeight: FontWeight.w600),
+        displayLarge: GoogleFonts.playfairDisplay(
+            color: lightText, fontSize: 32, fontWeight: FontWeight.bold),
+        displayMedium: GoogleFonts.playfairDisplay(
+            color: lightText, fontSize: 24, fontWeight: FontWeight.bold),
+        headlineMedium: GoogleFonts.playfairDisplay(
+            color: lightText, fontSize: 20, fontWeight: FontWeight.w600),
         bodyLarge: GoogleFonts.lato(color: lightText, fontSize: 16),
         bodyMedium: GoogleFonts.lato(color: lightMuted, fontSize: 14),
-        labelLarge: GoogleFonts.lato(color: lightText, fontSize: 16, fontWeight: FontWeight.bold),
+        labelLarge: GoogleFonts.lato(
+            color: lightText, fontSize: 16, fontWeight: FontWeight.bold),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: lightPrimary,
         elevation: 0,
-        titleTextStyle: GoogleFonts.playfairDisplay(color: lightText, fontSize: 20, fontWeight: FontWeight.bold),
+        titleTextStyle: GoogleFonts.playfairDisplay(
+            color: lightText, fontSize: 20, fontWeight: FontWeight.bold),
         iconTheme: const IconThemeData(color: accent),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
@@ -222,7 +239,8 @@ class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: lightSurface,
-        titleTextStyle: GoogleFonts.playfairDisplay(color: lightText, fontSize: 20, fontWeight: FontWeight.bold),
+        titleTextStyle: GoogleFonts.playfairDisplay(
+            color: lightText, fontSize: 20, fontWeight: FontWeight.bold),
         contentTextStyle: GoogleFonts.lato(color: lightMuted, fontSize: 14),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -232,14 +250,16 @@ class AppTheme {
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
         textStyle: GoogleFonts.lato(color: lightText, fontSize: 14),
-        inputDecorationTheme: _inputDecoration(lightCard, lightSurface, lightMuted),
+        inputDecorationTheme:
+            _inputDecoration(lightCard, lightSurface, lightMuted),
       ),
       // dropdownButtonTheme: DropdownButtonThemeData(
       //   dropdownColor: lightSurface,
       //   style: GoogleFonts.lato(color: lightText, fontSize: 14),
       // ),
       cardTheme: const CardThemeData(color: lightSurface),
-      inputDecorationTheme: _inputDecoration(lightCard, lightSurface, lightMuted),
+      inputDecorationTheme:
+          _inputDecoration(lightCard, lightSurface, lightMuted),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: accent,
@@ -280,7 +300,8 @@ class AppTheme {
     );
   }
 
-  static InputDecorationTheme _inputDecoration(Color borderColor, Color fillColor, Color hintColor) {
+  static InputDecorationTheme _inputDecoration(
+      Color borderColor, Color fillColor, Color hintColor) {
     final border = OutlineInputBorder(
       borderSide: BorderSide(color: borderColor),
       borderRadius: BorderRadius.circular(8),
@@ -291,9 +312,11 @@ class AppTheme {
       hintStyle: GoogleFonts.lato(color: hintColor),
       labelStyle: GoogleFonts.lato(color: hintColor),
       enabledBorder: border,
-      focusedBorder: border.copyWith(borderSide: const BorderSide(color: accent)),
+      focusedBorder:
+          border.copyWith(borderSide: const BorderSide(color: accent)),
       errorBorder: border.copyWith(borderSide: const BorderSide(color: error)),
-      focusedErrorBorder: border.copyWith(borderSide: const BorderSide(color: error)),
+      focusedErrorBorder:
+          border.copyWith(borderSide: const BorderSide(color: error)),
     );
   }
 }

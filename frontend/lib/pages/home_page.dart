@@ -30,339 +30,380 @@ class HomePage extends StatelessWidget {
         final stats = data.stats;
         final featured = data.featuredLesson;
         final fact = data.fact;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 10),
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ResponsiveText(
-                      'Привет, Историк! 👋',
-                      style: GoogleFonts.lato(
-                        color: AppTheme.textSecondary,
-                        fontSize: 14,
-                      ),
+              const SizedBox(height: 10),
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ResponsiveText(
+                          'Привет, Историк! 👋',
+                          style: GoogleFonts.lato(
+                            color: AppTheme.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ResponsiveText(
+                          'Продолжай учиться',
+                          style: GoogleFonts.playfairDisplay(
+                            color: AppTheme.textPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    ResponsiveText(
-                      'Продолжай учиться',
-                      style: GoogleFonts.playfairDisplay(
-                        color: AppTheme.textPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Streak badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFFFF9A3C)],
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF6B35).withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                  const SizedBox(width: 12),
+                  // Streak badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF6B35), Color(0xFFFF9A3C)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF6B35).withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        const Text('🔥', style: TextStyle(fontSize: 18)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${stats.streak}',
+                          style: GoogleFonts.lato(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Stats row
+              Row(
+                children: [
+                  _StatCard(
+                    value: '${stats.totalPoints}',
+                    label: 'Очков',
+                    icon: '⭐',
+                    color: AppTheme.accent,
+                  ),
+                  const SizedBox(width: 12),
+                  _StatCard(
+                    value: '${stats.lessonsCompleted}',
+                    label: 'Уроков',
+                    icon: '📚',
+                    color: const Color(0xFF5C7AEA),
+                  ),
+                  const SizedBox(width: 12),
+                  _StatCard(
+                    value: '${stats.quizzesPassed}',
+                    label: 'Квизов',
+                    icon: '🏆',
+                    color: const Color(0xFF2ECC71),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // Daily goal banner
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: AppTheme.dailyGoalGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.accent.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Text('🔥', style: TextStyle(fontSize: 18)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${stats.streak}',
-                      style: GoogleFonts.lato(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text('🎯', style: TextStyle(fontSize: 28)),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Дневная цель',
+                            style: GoogleFonts.playfairDisplay(
+                              color: AppTheme.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: stats.levelProgress / 100,
+                              backgroundColor:
+                                  AppTheme.primary.withValues(alpha: 0.5),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  AppTheme.accent),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${stats.levelProgress}% выполнено',
+                            style: GoogleFonts.lato(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
 
-          const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-          // Stats row
-          Row(
-            children: [
-              _StatCard(
-                value: '${stats.totalPoints}',
-                label: 'Очков',
-                icon: '⭐',
-                color: AppTheme.accent,
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                value: '${stats.lessonsCompleted}',
-                label: 'Уроков',
-                icon: '📚',
-                color: const Color(0xFF5C7AEA),
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                value: '${stats.quizzesPassed}',
-                label: 'Квизов',
-                icon: '🏆',
-                color: const Color(0xFF2ECC71),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 28),
-
-          // Daily goal banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: AppTheme.dailyGoalGradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppTheme.accent.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text('🎯', style: TextStyle(fontSize: 28)),
+              // Continue learning
+              Text(
+                'Продолжи обучение',
+                style: GoogleFonts.playfairDisplay(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
+              ),
+              const SizedBox(height: 16),
+
+              // Featured lesson
+              GestureDetector(
+                onTap: onLearnTap,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: AppTheme.featuredLessonGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.isLight
+                            ? const Color(0xFFD6A35D).withValues(alpha: 0.28)
+                            : Colors.brown.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Дневная цель',
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.isLight
+                                    ? AppTheme.surface.withValues(alpha: 0.75)
+                                    : Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: ResponsiveText(
+                                featured == null
+                                    ? '📚 Обучение'
+                                    : '📚 ${featured.title}',
+                                style: GoogleFonts.lato(
+                                  color: AppTheme.isLight
+                                      ? AppTheme.textPrimary
+                                      : Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Icon(Icons.play_circle_filled,
+                              color: AppTheme.isLight
+                                  ? AppTheme.textPrimary
+                                  : Colors.white,
+                              size: 32),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ResponsiveText(
+                        featured?.title ?? 'Продолжи обучение',
                         style: GoogleFonts.playfairDisplay(
-                          color: AppTheme.textPrimary,
-                          fontSize: 16,
+                          color: AppTheme.isLight
+                              ? AppTheme.textPrimary
+                              : Colors.white,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: stats.levelProgress / 100,
-                          backgroundColor: AppTheme.primary.withValues(alpha: 0.5),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accent),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${stats.levelProgress}% выполнено',
+                      ResponsiveText(
+                        featured?.description ??
+                            'Открой следующий доступный урок',
                         style: GoogleFonts.lato(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
+                          color: AppTheme.isLight
+                              ? AppTheme.textSecondary
+                              : Colors.white.withValues(alpha: 0.8),
+                          fontSize: 13,
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Icon(Icons.timer_outlined,
+                              color: AppTheme.isLight
+                                  ? AppTheme.textSecondary
+                                  : Colors.white70,
+                              size: 14),
+                          ResponsiveText(featured?.duration ?? '—',
+                              style: GoogleFonts.lato(
+                                  color: AppTheme.isLight
+                                      ? AppTheme.textSecondary
+                                      : Colors.white70,
+                                  fontSize: 12)),
+                          Icon(Icons.signal_cellular_alt,
+                              color: AppTheme.isLight
+                                  ? AppTheme.textSecondary
+                                  : Colors.white70,
+                              size: 14),
+                          ResponsiveText(featured?.difficulty ?? 'Следующий',
+                              style: GoogleFonts.lato(
+                                  color: AppTheme.isLight
+                                      ? AppTheme.textSecondary
+                                      : Colors.white70,
+                                  fontSize: 12)),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 28),
-
-          // Continue learning
-          Text(
-            'Продолжи обучение',
-            style: GoogleFonts.playfairDisplay(
-              color: AppTheme.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Featured lesson
-          GestureDetector(
-            onTap: onLearnTap,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppTheme.featuredLessonGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.isLight ? const Color(0xFFD6A35D).withValues(alpha: 0.28) : Colors.brown.withValues(alpha: 0.4),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+
+              const SizedBox(height: 28),
+
+              // Quick actions
+              Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.isLight ? AppTheme.surface.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: ResponsiveText(
-                            featured == null ? '📚 Обучение' : '📚 ${featured.title}',
-                            style: GoogleFonts.lato(
-                              color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(Icons.play_circle_filled, color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white, size: 32),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ResponsiveText(
-                    featured?.title ?? 'Продолжи обучение',
-                    style: GoogleFonts.playfairDisplay(
-                      color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: _QuickAction(
+                      icon: '⚡',
+                      title: 'Быстрый квиз',
+                      subtitle: '5 вопросов',
+                      color: const Color(0xFF5C7AEA),
+                      onTap: onQuizTap,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  ResponsiveText(
-                    featured?.description ?? 'Открой следующий доступный урок',
-                    style: GoogleFonts.lato(
-                      color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _QuickAction(
+                      icon: '⏳',
+                      title: 'Лента времени',
+                      subtitle: 'Ключевые события',
+                      color: const Color(0xFF2ECC71),
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const TimelinePage())),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Icon(Icons.timer_outlined, color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, size: 14),
-                      ResponsiveText(featured?.duration ?? '—', style: GoogleFonts.lato(color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, fontSize: 12)),
-                      Icon(Icons.signal_cellular_alt, color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, size: 14),
-                      ResponsiveText(featured?.difficulty ?? 'Следующий', style: GoogleFonts.lato(color: AppTheme.isLight ? AppTheme.textSecondary : Colors.white70, fontSize: 12)),
-                    ],
                   ),
                 ],
               ),
-            ),
-          ),
 
-          const SizedBox(height: 28),
+              const SizedBox(height: 28),
 
-          // Quick actions
-          Row(
-            children: [
-              Expanded(
-                child: _QuickAction(
-                  icon: '⚡',
-                  title: 'Быстрый квиз',
-                  subtitle: '5 вопросов',
-                  color: const Color(0xFF5C7AEA),
-                  onTap: onQuizTap,
+              // Today's fact
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.cardBg,
+                    width: 1,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _QuickAction(
-                  icon: '⏳',
-                  title: 'Лента времени',
-                  subtitle: 'Ключевые события',
-                  color: const Color(0xFF2ECC71),
-                  onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const TimelinePage())),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 28),
-
-          // Today's fact
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppTheme.cardBg,
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('💡', style: TextStyle(fontSize: 20)),
-                    const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        const Text('💡', style: TextStyle(fontSize: 20)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Факт дня',
+                          style: GoogleFonts.playfairDisplay(
+                            color: AppTheme.accent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     Text(
-                      'Факт дня',
-                      style: GoogleFonts.playfairDisplay(
-                        color: AppTheme.accent,
+                      fact,
+                      style: GoogleFonts.lato(
+                        color: AppTheme.textPrimary,
                         fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        height: 1.6,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  fact,
-                  style: GoogleFonts.lato(
-                    color: AppTheme.textPrimary,
-                    fontSize: 14,
-                    height: 1.6,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
 
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
       },
     );
   }
@@ -386,7 +427,8 @@ class HomePage extends StatelessWidget {
     Lesson? featured;
     if (session.isAuthenticated && catalog.courseIds.isNotEmpty) {
       try {
-        final rec = await RecommendationApi(session.client).getNext(catalog.courseIds.first);
+        final rec = await RecommendationApi(session.client)
+            .getNext(catalog.courseIds.first);
         for (final lesson in catalog.lessons) {
           if (lesson.backendSkillId == rec?.skillId) {
             featured = lesson;
@@ -398,7 +440,8 @@ class HomePage extends StatelessWidget {
       }
     }
     featured ??= catalog.lessons.isNotEmpty ? catalog.lessons.first : null;
-    final completed = catalog.lessons.where((lesson) => lesson.isCompleted).length;
+    final completed =
+        catalog.lessons.where((lesson) => lesson.isCompleted).length;
     final stats = _HomeStats(
       streak: profile?.currentStreak ?? 0,
       totalPoints: profile?.totalXp ?? 0,
@@ -406,14 +449,22 @@ class HomePage extends StatelessWidget {
       quizzesPassed: completed,
       levelProgress: profile == null ? 0 : profile.totalXp % 100,
     );
-    return _HomeData(stats: stats, featuredLesson: featured, fact: _dailyFact(catalog.lessons));
+    return _HomeData(
+        stats: stats,
+        featuredLesson: featured,
+        fact: _dailyFact(catalog.lessons));
   }
 
   String _dailyFact(List<Lesson> lessons) {
-    final facts = lessons.expand((lesson) => lesson.facts).where((fact) => fact.trim().isNotEmpty).toList();
+    final facts = lessons
+        .expand((lesson) => lesson.facts)
+        .where((fact) => fact.trim().isNotEmpty)
+        .toList();
     if (facts.isEmpty) return 'Факт появится после наполнения уроков.';
     final now = DateTime.now();
-    final dayKey = DateTime(now.year, now.month, now.day).difference(DateTime(2020)).inDays;
+    final dayKey = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(2020))
+        .inDays;
     return facts[dayKey % facts.length];
   }
 }
@@ -423,7 +474,8 @@ class _HomeData {
   final Lesson? featuredLesson;
   final String fact;
 
-  const _HomeData({required this.stats, required this.featuredLesson, required this.fact});
+  const _HomeData(
+      {required this.stats, required this.featuredLesson, required this.fact});
 
   factory _HomeData.fallback() => const _HomeData(
         stats: _HomeStats(

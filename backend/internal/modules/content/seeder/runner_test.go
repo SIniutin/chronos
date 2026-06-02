@@ -27,14 +27,14 @@ func TestRunnerCreatesStructuredHistorySeed(t *testing.T) {
 	if result.Skipped {
 		t.Fatalf("seed should not be skipped")
 	}
-	if result.Courses != 1 || result.Sections != 39 || result.Units != 50 || result.Skills != 57 || result.Challenges != 289 {
+	if result.Courses != 1 || result.Sections != 47 || result.Units != 60 || result.Skills != 67 || result.Challenges != 535 {
 		t.Fatalf("unexpected result: %+v", result)
 	}
-	if content.createdChallenges != 289 {
-		t.Fatalf("expected 289 created challenges, got %d", content.createdChallenges)
+	if content.createdChallenges != 535 {
+		t.Fatalf("expected 535 created challenges, got %d", content.createdChallenges)
 	}
-	if content.published["challenges"] != 280 {
-		t.Fatalf("expected 280 published challenges, got %d", content.published["challenges"])
+	if content.published["challenges"] != 529 {
+		t.Fatalf("expected 529 published challenges, got %d", content.published["challenges"])
 	}
 }
 

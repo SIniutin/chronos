@@ -270,6 +270,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    AppTheme.currentMode = SessionScope.of(context).themeMode;
+
     if (_usesBackend) {
       return _buildBackend(context);
     }
@@ -747,6 +749,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _orderedOptionIds.length,
+          // ignore: deprecated_member_use
           onReorder: _backendAnswer != null
               ? (_, __) {}
               : (oldIndex, newIndex) {
@@ -876,7 +879,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   }
 
   bool _canSubmitBackendAnswer(ChallengeDto challenge) {
-    if (challenge.type == 'theory') return true;
+    if (challenge.type == 'theory') {
+      return true;
+    }
     if (challenge.type == 'fill_in_blank') {
       return _fillController.text.trim().isNotEmpty;
     }
@@ -894,13 +899,17 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       return groups.left.isNotEmpty &&
           _pairSelections.length == groups.left.length;
     }
-    if (challenge.type == 'map_point') return _mapPointAnswer != null;
+    if (challenge.type == 'map_point') {
+      return _mapPointAnswer != null;
+    }
     if (challenge.type == 'map_area') {
       return _mapAreaDone &&
           _mapAreaAnswer != null &&
           _mapAreaAnswer!.areaM2 > 0;
     }
-    if (_isSingleAnswerType(challenge.type)) return _selectedOptionId != null;
+    if (_isSingleAnswerType(challenge.type)) {
+      return _selectedOptionId != null;
+    }
     return false;
   }
 
@@ -1100,7 +1109,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   }
 
   String _optionId(dynamic option, int index) {
-    if (option is Map && option['id'] != null) return option['id'].toString();
+    if (option is Map && option['id'] != null) {
+      return option['id'].toString();
+    }
     if (option is Map && option['value'] != null) {
       return option['value'].toString();
     }
@@ -1114,7 +1125,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     if (option is Map && option['label'] != null) {
       return option['label'].toString();
     }
-    if (option is Map && option['alt'] != null) return option['alt'].toString();
+    if (option is Map && option['alt'] != null) {
+      return option['alt'].toString();
+    }
     if (option is Map && option['value'] != null) {
       return option['value'].toString();
     }
@@ -1139,14 +1152,18 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     String title;
     String subtitle;
 
-    if (percent >= 80) {
+    if (percent == 100) {
       emoji = '🏆';
       title = 'Блестяще!';
-      subtitle = 'Ты настоящий знаток истории';
+      subtitle = 'Урок пройден, следующий открыт';
+    } else if (percent >= 80) {
+      emoji = '👍';
+      title = 'Почти идеально!';
+      subtitle = 'Для открытия следующего урока нужно 100%';
     } else if (percent >= 60) {
       emoji = '👍';
       title = 'Хорошо!';
-      subtitle = 'Ещё немного и будешь историком';
+      subtitle = 'Повтори тему и попробуй пройти без ошибок';
     } else {
       emoji = '📚';
       title = 'Нужно подтянуться';
@@ -1225,7 +1242,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                               value: total == 0 ? 0.0 : score / total,
                               backgroundColor: AppTheme.cardBg,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                percent >= 80
+                                percent == 100
                                     ? AppTheme.correct
                                     : percent >= 60
                                         ? AppTheme.accent

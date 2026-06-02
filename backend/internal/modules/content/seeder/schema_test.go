@@ -15,7 +15,7 @@ func TestLoadFileParsesStructuredHistorySeed(t *testing.T) {
 		t.Fatalf("unexpected course title: %q", seed.Course.Title)
 	}
 	sections, units, skills, challenges := countSeed(seed)
-	if sections != 39 || units != 50 || skills != 57 || challenges != 289 {
+	if sections != 47 || units != 60 || skills != 67 || challenges != 535 {
 		t.Fatalf("unexpected counts: sections=%d units=%d skills=%d challenges=%d", sections, units, skills, challenges)
 	}
 	for _, section := range seed.Sections {
@@ -33,9 +33,17 @@ func assertSkillSeedValid(t *testing.T, skill SeedSkill) {
 		t.Fatalf("skill %q has no challenges", skill.Title)
 	}
 	hasTheory := false
+	hasSingleChoice := false
+	hasTrueFalse := false
 	for index, challenge := range skill.Challenges {
 		if challenge.Type == "theory" {
 			hasTheory = true
+		}
+		if challenge.Type == "single_choice" {
+			hasSingleChoice = true
+		}
+		if challenge.Type == "true_false" {
+			hasTrueFalse = true
 		}
 		if challenge.Position != index+1 {
 			t.Fatalf("skill %q challenge %q position=%d, want %d", skill.Title, challenge.Prompt, challenge.Position, index+1)
@@ -50,6 +58,12 @@ func assertSkillSeedValid(t *testing.T, skill SeedSkill) {
 	}
 	if !hasTheory {
 		t.Fatalf("skill %q has no theory challenge", skill.Title)
+	}
+	if !hasSingleChoice {
+		t.Fatalf("skill %q has no single_choice challenge", skill.Title)
+	}
+	if !hasTrueFalse {
+		t.Fatalf("skill %q has no true_false challenge", skill.Title)
 	}
 }
 
@@ -131,9 +145,10 @@ func assertAnswersReferenceOptions(t *testing.T, skillTitle string, challenge Se
 			t.Fatalf("skill %q challenge %q answers decode failed: %v", skillTitle, challenge.Prompt, err)
 		}
 		photoIDs := map[string]bool{}
+		placeholder := hasSeedTag(challenge, "placeholder")
 		labelIDs := map[string]bool{}
 		for _, photo := range options.Photos {
-			if photo.ID == "" || photo.ImageURL == "" || photo.Alt == "" {
+			if photo.ID == "" || photo.Alt == "" || (!placeholder && photo.ImageURL == "") {
 				t.Fatalf("skill %q challenge %q has incomplete photo %+v", skillTitle, challenge.Prompt, photo)
 			}
 			photoIDs[photo.ID] = true
@@ -198,6 +213,19 @@ func assertAnswersReferenceOptions(t *testing.T, skillTitle string, challenge Se
 			t.Fatalf("skill %q challenge %q has invalid map_area", skillTitle, challenge.Prompt)
 		}
 	}
+}
+
+func hasSeedTag(challenge SeedChallenge, tag string) bool {
+	var tags []string
+	if err := json.Unmarshal(challenge.Tags, &tags); err != nil {
+		return false
+	}
+	for _, candidate := range tags {
+		if candidate == tag {
+			return true
+		}
+	}
+	return false
 }
 
 func countSeed(seed SeedFile) (sections int, units int, skills int, challenges int) {

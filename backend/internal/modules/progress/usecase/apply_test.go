@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestApplySessionResultCreatesProgressAndUpdatesMastery(t *testing.T) {
+func TestApplySessionResultCreatesProgressAndKeepsSkillInProgressWhenNotPerfect(t *testing.T) {
 	userID := domain.UserID(uuid.New())
 	graph := newContentGraph(1, 1, 1)
 	repo := newMemoryRepo()
@@ -33,14 +33,17 @@ func TestApplySessionResultCreatesProgressAndUpdatesMastery(t *testing.T) {
 	if result.NewMastery != 0.15 {
 		t.Fatalf("expected mastery 0.15, got %v", result.NewMastery)
 	}
-	if repo.courses[courseKey(userID, graph.course.ID)].Status != domain.ProgressStatusCompleted {
-		t.Fatalf("expected course completed")
+	if result.SkillCompleted || result.UnitCompleted || result.CourseCompleted {
+		t.Fatalf("expected no completion for non-perfect session, got %+v", result)
 	}
-	if repo.units[unitKey(userID, graph.units[0].ID)].Status != domain.ProgressStatusCompleted {
-		t.Fatalf("expected unit completed")
+	if repo.courses[courseKey(userID, graph.course.ID)].Status != domain.ProgressStatusInProgress {
+		t.Fatalf("expected course in progress")
 	}
-	if repo.skills[skillKey(userID, graph.skills[0].ID)].Status != domain.ProgressStatusCompleted {
-		t.Fatalf("expected skill completed")
+	if repo.units[unitKey(userID, graph.units[0].ID)].Status != domain.ProgressStatusInProgress {
+		t.Fatalf("expected unit in progress")
+	}
+	if repo.skills[skillKey(userID, graph.skills[0].ID)].Status != domain.ProgressStatusInProgress {
+		t.Fatalf("expected skill in progress")
 	}
 }
 
@@ -56,7 +59,7 @@ func TestApplySessionResultLevelsCompletesAndUnlocksSequentially(t *testing.T) {
 	result, err := uc.ApplySessionResult(context.Background(), domain.SessionProgressInput{
 		UserID:         userID,
 		SkillID:        graph.skills[0].ID,
-		CorrectAnswers: 7,
+		CorrectAnswers: 10,
 		TotalAnswers:   10,
 		CompletedAt:    fixedTime(),
 	})
@@ -68,6 +71,36 @@ func TestApplySessionResultLevelsCompletesAndUnlocksSequentially(t *testing.T) {
 	}
 	if len(result.UnlockedSkillIDs) != 1 || result.UnlockedSkillIDs[0] != graph.skills[1].ID {
 		t.Fatalf("expected next skill unlock, got %+v", result.UnlockedSkillIDs)
+	}
+}
+
+func TestApplySessionResultDoesNotUnlockNextSkillUntilPerfect(t *testing.T) {
+	userID := domain.UserID(uuid.New())
+	graph := newContentGraph(1, 1, 2)
+	repo := newMemoryRepo()
+	repo.skills[skillKey(userID, graph.skills[0].ID)] = domain.SkillProgress{
+		UserID: userID, SkillID: graph.skills[0].ID, Status: domain.ProgressStatusAvailable, StartedAt: fixedTime(), UpdatedAt: fixedTime(),
+	}
+	uc := NewService(Dependencies{Repository: repo, Content: graph})
+
+	result, err := uc.ApplySessionResult(context.Background(), domain.SessionProgressInput{
+		UserID:         userID,
+		SkillID:        graph.skills[0].ID,
+		CorrectAnswers: 1,
+		TotalAnswers:   2,
+		CompletedAt:    fixedTime(),
+	})
+	if err != nil {
+		t.Fatalf("apply failed: %v", err)
+	}
+	if result.SkillCompleted || len(result.UnlockedSkillIDs) != 0 || len(result.UnlockedUnitIDs) != 0 {
+		t.Fatalf("expected no unlock for non-perfect session, got %+v", result)
+	}
+	if repo.skills[skillKey(userID, graph.skills[0].ID)].Status != domain.ProgressStatusInProgress {
+		t.Fatalf("expected current skill in progress")
+	}
+	if _, ok := repo.skills[skillKey(userID, graph.skills[1].ID)]; ok {
+		t.Fatalf("next skill should not be unlocked")
 	}
 }
 

@@ -39,13 +39,14 @@ func (s *Service) ApplySessionResult(ctx context.Context, input domain.SessionPr
 	if err != nil {
 		return domain.SessionProgressResult{}, err
 	}
-	applySkillSession(&skillProgress, input)
+	perfect := input.TotalAnswers > 0 && input.CorrectAnswers == input.TotalAnswers
+	applySkillSession(&skillProgress, input, perfect)
 	if err := s.repo.SaveSkillProgress(ctx, skillProgress); err != nil {
 		return domain.SessionProgressResult{}, err
 	}
 
 	result := domain.SessionProgressResult{
-		SkillCompleted: skillProgress.Status == domain.ProgressStatusCompleted,
+		SkillCompleted: perfect && skillProgress.Status == domain.ProgressStatusCompleted,
 		NewSkillLevel:  skillProgress.Level,
 		NewMastery:     skillProgress.Mastery,
 	}
@@ -59,34 +60,36 @@ func (s *Service) ApplySessionResult(ctx context.Context, input domain.SessionPr
 		result.UnlockedUnitIDs = unlockedUnits
 	}
 
-	unitCompleted, err := s.allSkillsCompleted(ctx, input.UserID, unit.ID)
-	if err != nil {
-		return domain.SessionProgressResult{}, err
-	}
-	if unitCompleted {
-		completedAt := input.CompletedAt
-		unitProgress.Status = domain.ProgressStatusCompleted
-		unitProgress.CompletedAt = &completedAt
-		unitProgress.UpdatedAt = input.CompletedAt
-		if err := s.repo.SaveUnitProgress(ctx, unitProgress); err != nil {
+	if result.SkillCompleted {
+		unitCompleted, err := s.allSkillsCompleted(ctx, input.UserID, unit.ID)
+		if err != nil {
 			return domain.SessionProgressResult{}, err
 		}
-		result.UnitCompleted = true
-	}
+		if unitCompleted {
+			completedAt := input.CompletedAt
+			unitProgress.Status = domain.ProgressStatusCompleted
+			unitProgress.CompletedAt = &completedAt
+			unitProgress.UpdatedAt = input.CompletedAt
+			if err := s.repo.SaveUnitProgress(ctx, unitProgress); err != nil {
+				return domain.SessionProgressResult{}, err
+			}
+			result.UnitCompleted = true
+		}
 
-	courseCompleted, err := s.allUnitsCompleted(ctx, input.UserID, courseID)
-	if err != nil {
-		return domain.SessionProgressResult{}, err
-	}
-	if courseCompleted {
-		completedAt := input.CompletedAt
-		courseProgress.Status = domain.ProgressStatusCompleted
-		courseProgress.CompletedAt = &completedAt
-		courseProgress.UpdatedAt = input.CompletedAt
-		if err := s.repo.SaveCourseProgress(ctx, courseProgress); err != nil {
+		courseCompleted, err := s.allUnitsCompleted(ctx, input.UserID, courseID)
+		if err != nil {
 			return domain.SessionProgressResult{}, err
 		}
-		result.CourseCompleted = true
+		if courseCompleted {
+			completedAt := input.CompletedAt
+			courseProgress.Status = domain.ProgressStatusCompleted
+			courseProgress.CompletedAt = &completedAt
+			courseProgress.UpdatedAt = input.CompletedAt
+			if err := s.repo.SaveCourseProgress(ctx, courseProgress); err != nil {
+				return domain.SessionProgressResult{}, err
+			}
+			result.CourseCompleted = true
+		}
 	}
 
 	return result, nil
@@ -155,7 +158,7 @@ func (s *Service) ensureSkillProgress(ctx context.Context, userID domain.UserID,
 	return domain.SkillProgress{UserID: userID, SkillID: skillID, Status: domain.ProgressStatusInProgress, StartedAt: now, UpdatedAt: now}, nil
 }
 
-func applySkillSession(progress *domain.SkillProgress, input domain.SessionProgressInput) {
+func applySkillSession(progress *domain.SkillProgress, input domain.SessionProgressInput, perfect bool) {
 	accuracy := 0.0
 	if input.TotalAnswers > 0 {
 		accuracy = float64(input.CorrectAnswers) / float64(input.TotalAnswers)
@@ -166,8 +169,12 @@ func applySkillSession(progress *domain.SkillProgress, input domain.SessionProgr
 	if progress.Level < maxSkillLevel {
 		progress.Level++
 	}
-	completedAt := input.CompletedAt
-	progress.Status = domain.ProgressStatusCompleted
-	progress.CompletedAt = &completedAt
+	if perfect {
+		completedAt := input.CompletedAt
+		progress.Status = domain.ProgressStatusCompleted
+		progress.CompletedAt = &completedAt
+	} else if progress.Status != domain.ProgressStatusCompleted {
+		progress.Status = domain.ProgressStatusInProgress
+	}
 	progress.UpdatedAt = input.CompletedAt
 }

@@ -47,5 +47,7 @@ python3 ../scripts/import_figma_course.py --no-fetch
 ```
 
 The merge is idempotent, keeps existing curated sections and challenges,
-appends missing normalized themes and interactive tasks after current
-positions, and validates `answers` references for map/photo formats.
+creates missing `sections -> units -> skills` from `normalized_course.json`,
+generates required `theory/single_choice/true_false` challenges for every
+skill, appends interactive placeholders when source data is missing, and
+validates `answers` references for map/photo formats.

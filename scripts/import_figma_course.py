@@ -40,23 +40,6 @@ SUPPORTED_TYPES = {
     "map_area",
 }
 
-CURATED_NORMALIZED_THEMES = {
-    "РЕФОРМЫ ВИТТЕ",
-    "Россия на рубеже XIX–XX.Смерть Александра III и воцарение Николая II.",
-    "КЛЮЧЕВЫЕ СОБЫТИЯ НА РУБЕЖЕ XIX–XX.",
-    "Смена политического курса не происходит, но усиливается конфликт с обществом",
-    "Революция 1905–1907 гг.",
-    "Рабочее законодательство. Забастовки",
-    "Третья Государственная дума и столыпинский курс",
-    "В. И. Ульянов‑Ленин. Российская социал‑демократическая рабочая партия. Большевизм и меньшевизм",
-}
-
-# The Figma layout places this heading after its explanatory block. Reuse the
-# already normalized neighboring material so the generated lesson is not empty.
-NORMALIZED_SKILL_FACT_SOURCES = {
-    "«Красногвардейская атака на капитал»": "Национализация и установление государственного контроля над экономикой",
-}
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Fetch Figma course text and enrich the history seed.")
@@ -149,18 +132,23 @@ def extract_figma_text(figma: dict[str, Any]) -> dict[str, Any]:
 
 
 def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str, Any] | None = None) -> dict[str, int]:
+    if normalized:
+        merge_normalized_course(seed, normalized)
+    all_facts = collect_all_facts(seed)
     figma_texts = [node.get("text", "") for node in raw.get("text_nodes", []) if isinstance(node, dict)]
     normalized_skills = collect_normalized_skills(normalized) if normalized else []
     added = Counter()
-    if normalized:
-        added.update(append_missing_normalized_sections(seed, normalized, normalized_skills))
-    all_facts = collect_all_facts(seed)
 
     for section in seed.get("sections", []):
         for unit in section.get("units", []):
             for skill in unit.get("skills", []):
-                facts = merged_facts(skill, figma_texts)
+                normalized_skill = best_normalized_skill(skill.get("title", ""), normalized_skills)
+                facts = merged_facts(skill, figma_texts if not normalized_skill else [])
+                if normalized_skill:
+                    merge_skill_content(skill, normalized_skill)
+                    facts = [clean_text(item) for item in skill.get("facts", []) if clean_text(item)]
                 challenges = skill.setdefault("challenges", [])
+                publish_interactive_placeholders(challenges)
                 existing = {challenge.get("type") for challenge in challenges}
                 signatures = {challenge_signature(challenge) for challenge in challenges}
 
@@ -179,17 +167,26 @@ def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str,
                     pairs = explicit_pairs(skill, facts)
                     if pairs:
                         candidates.append(match_pairs_challenge(pairs))
-                normalized_skill = best_normalized_skill(skill.get("title", ""), normalized_skills)
+                if not has_result_challenge(challenges):
+                    results = [clean_text(item) for item in skill.get("results", []) if clean_text(item)]
+                    if results:
+                        candidates.append(results_challenge(skill, results, all_facts))
                 if normalized_skill:
                     if "map_point" not in existing:
-                        for item in normalized_skill.get("map_points", [])[:1]:
+                        for item in skill.get("map_points", [])[:1]:
                             candidates.append(map_point_challenge(item))
                     if "map_area" not in existing:
-                        for item in normalized_skill.get("map_areas", [])[:1]:
+                        for item in skill.get("map_areas", [])[:1]:
                             candidates.append(map_area_challenge(item))
                     if "match_photos" not in existing:
-                        for item in normalized_skill.get("photo_matches", [])[:1]:
+                        for item in skill.get("photo_matches", [])[:1]:
                             candidates.append(match_photos_challenge(item))
+                if "map_point" not in existing and not any(candidate.get("type") == "map_point" for candidate in candidates):
+                    candidates.append(placeholder_map_point_challenge(skill, facts))
+                if "map_area" not in existing and not any(candidate.get("type") == "map_area" for candidate in candidates):
+                    candidates.append(placeholder_map_area_challenge(skill, facts))
+                if "match_photos" not in existing and not any(candidate.get("type") == "match_photos" for candidate in candidates):
+                    candidates.append(placeholder_match_photos_challenge(skill, facts))
 
                 for candidate in candidates:
                     sig = challenge_signature(candidate)
@@ -204,91 +201,116 @@ def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str,
     return dict(added)
 
 
-def append_missing_normalized_sections(
-    seed: dict[str, Any],
-    normalized: dict[str, Any],
-    normalized_skills: list[dict[str, Any]],
-) -> dict[str, int]:
-    existing_themes = {norm(section.get("theme", "")) for section in seed.get("sections", [])}
-    curated_themes = {norm(theme) for theme in CURATED_NORMALIZED_THEMES}
-    skills_by_title = {norm(skill.get("title", "")): skill for skill in normalized_skills}
-    added = Counter()
+def publish_interactive_placeholders(challenges: list[dict[str, Any]]) -> None:
+    for challenge in challenges:
+        if challenge.get("type") not in {"map_point", "map_area", "match_photos"}:
+            continue
+        tags = ensure_tags(challenge)
+        if "placeholder" not in tags and ("needs_review" in tags or not has_real_interactive_asset(challenge)):
+            tags.append("placeholder")
+        challenge["status"] = "published"
 
-    for section in normalized.get("sections", []):
-        theme = clean_text(section.get("theme", ""))
-        if not theme or norm(theme) in curated_themes or norm(theme) in existing_themes:
+
+def has_real_interactive_asset(challenge: dict[str, Any]) -> bool:
+    if challenge.get("type") != "match_photos":
+        return "needs_review" not in challenge.get("tags", [])
+    options = challenge.get("options")
+    photos = options.get("photos", []) if isinstance(options, dict) else []
+    return bool(photos) and all(isinstance(photo, dict) and clean_text(photo.get("image_url")) for photo in photos)
+
+
+def ensure_tags(challenge: dict[str, Any]) -> list[str]:
+    tags = challenge.get("tags")
+    if not isinstance(tags, list):
+        tags = []
+        challenge["tags"] = tags
+    normalized: list[str] = []
+    for tag in tags:
+        text = clean_text(tag)
+        if text and text not in normalized:
+            normalized.append(text)
+    challenge["tags"] = normalized
+    return normalized
+
+
+def merge_normalized_course(seed: dict[str, Any], normalized: dict[str, Any]) -> None:
+    sections = seed.setdefault("sections", [])
+    for normalized_section in normalized.get("sections", []):
+        theme = clean_text(normalized_section.get("theme", ""))
+        if not theme:
             continue
-        units = []
-        for unit in section.get("units", []):
-            skills = [
-                normalized_skill_to_seed(skill, skills_by_title)
-                for skill in unit.get("skills", [])
-                if clean_text(skill.get("title", ""))
-            ]
-            if not skills:
-                continue
-            units.append({"title": clean_text(unit.get("title", "")) or theme, "skills": skills})
-            added["units"] += 1
-            added["skills"] += len(skills)
-        if not units:
-            continue
-        seed.setdefault("sections", []).append(
-            {
+        section = find_by_title(sections, "theme", theme)
+        if section is None:
+            section = {
                 "theme": theme,
-                "description": clean_text(section.get("description", "")) or f"Материалы раздела «{theme}».",
-                "units": units,
+                "description": clean_text(normalized_section.get("description", "")),
+                "units": [],
             }
-        )
-        existing_themes.add(norm(theme))
-        added["sections"] += 1
-    return dict(added)
+            sections.append(section)
+        elif not clean_text(section.get("description", "")) and clean_text(normalized_section.get("description", "")):
+            section["description"] = clean_text(normalized_section.get("description", ""))
+
+        units = section.setdefault("units", [])
+        for normalized_unit in normalized_section.get("units", []):
+            unit_title = clean_text(normalized_unit.get("title", ""))
+            if not unit_title:
+                continue
+            unit = find_by_title(units, "title", unit_title)
+            if unit is None:
+                unit = {"title": unit_title, "skills": []}
+                units.append(unit)
+            skills = unit.setdefault("skills", [])
+            for normalized_skill in normalized_unit.get("skills", []):
+                skill_title = clean_text(normalized_skill.get("title", ""))
+                if not skill_title:
+                    continue
+                skill = find_by_title(skills, "title", skill_title)
+                if skill is None:
+                    skill = {
+                        "title": skill_title,
+                        "facts": [],
+                        "challenges": [],
+                    }
+                    skills.append(skill)
+                merge_skill_content(skill, normalized_skill)
 
 
-def normalized_skill_to_seed(skill: dict[str, Any], skills_by_title: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    title = clean_text(skill.get("title", ""))
-    facts = clean_list(skill.get("facts", []))
-    if not facts:
-        source_title = NORMALIZED_SKILL_FACT_SOURCES.get(title)
-        source = skills_by_title.get(norm(source_title or ""))
-        if source:
-            facts = clean_list(source.get("facts", []))
-    cause_effect = clean_pairs(skill.get("cause_effect", []))
-    results = clean_list(skill.get("results", []))
-    material = learning_facts({"facts": facts, "results": results, "cause_effect": cause_effect}, [])
-    return {
-        "title": title,
-        "facts": facts,
-        "cause_effect": cause_effect,
-        "results": results,
-        "challenges_draft": draft_challenges(material),
-        "challenges": [],
-    }
+def find_by_title(items: list[dict[str, Any]], field: str, title: str) -> dict[str, Any] | None:
+    title_norm = norm(title)
+    for item in items:
+        if norm(item.get(field, "")) == title_norm:
+            return item
+    return None
 
 
-def draft_challenges(facts: list[str]) -> list[dict[str, Any]]:
-    correct = facts[0] if facts else "Материал темы требует ручной проверки."
-    alternative = facts[1] if len(facts) > 1 else "Нет дополнительного утверждения."
-    return [
-        {
-            "type": "theory_card",
-            "prompt": "Изучи краткий материал",
-            "body": "\n".join(facts[:4]),
-            "payload": {},
-        },
-        {
-            "type": "select_option",
-            "prompt": "Выбери правильный ответ",
-            "body": correct,
-            "payload": {
-                "options": [
-                    {"id": "a", "text": correct},
-                    {"id": "b", "text": alternative},
-                    {"id": "c", "text": "Нет верного ответа"},
-                ]
-            },
-            "answer": {"correct_option_id": "a"},
-        },
-    ]
+def merge_skill_content(skill: dict[str, Any], source: dict[str, Any]) -> None:
+    for field in ("facts", "results", "map_points", "map_areas", "photo_matches"):
+        existing = skill.setdefault(field, [])
+        if not isinstance(existing, list):
+            existing = []
+            skill[field] = existing
+        for item in source.get(field, []):
+            if not contains_equivalent(existing, item):
+                existing.append(item)
+
+    existing_pairs = skill.setdefault("cause_effect", [])
+    if not isinstance(existing_pairs, list):
+        existing_pairs = []
+        skill["cause_effect"] = existing_pairs
+    for item in source.get("cause_effect", []):
+        if isinstance(item, dict) and item.get("cause") and item.get("effect") and not contains_equivalent(existing_pairs, item):
+            existing_pairs.append(item)
+
+
+def contains_equivalent(items: list[Any], candidate: Any) -> bool:
+    candidate_key = comparable_key(candidate)
+    return any(comparable_key(item) == candidate_key for item in items)
+
+
+def comparable_key(value: Any) -> str:
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return norm(value)
 
 
 def collect_normalized_skills(normalized: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -328,9 +350,7 @@ def token_set(value: str) -> set[str]:
 
 
 def merged_facts(skill: dict[str, Any], figma_texts: list[str]) -> list[str]:
-    facts = learning_facts(skill, figma_texts)
-    if facts:
-        return facts
+    facts = [clean_text(item) for item in skill.get("facts", []) if clean_text(item)]
     title_norm = norm(skill.get("title", ""))
     for text in figma_texts:
         value = clean_text(text)
@@ -343,19 +363,6 @@ def merged_facts(skill: dict[str, Any], figma_texts: list[str]) -> list[str]:
         if looks_like_fact(value):
             facts.append(value)
     return facts
-
-
-def learning_facts(skill: dict[str, Any], figma_texts: list[str]) -> list[str]:
-    facts = clean_list(skill.get("facts", []))
-    if facts:
-        return facts
-    results = clean_list(skill.get("results", []))
-    if results:
-        return results
-    pairs = clean_pairs(skill.get("cause_effect", []))
-    if pairs:
-        return [f"{item['cause']} — {item['effect']}." for item in pairs]
-    return []
 
 
 def theory_challenge(skill: dict[str, Any], facts: list[str]) -> dict[str, Any]:
@@ -461,6 +468,7 @@ def explicit_pairs(skill: dict[str, Any], facts: list[str]) -> list[tuple[str, s
 def match_pairs_challenge(pairs: list[tuple[str, str]]) -> dict[str, Any]:
     left = [{"id": f"l{i+1}", "text": left_text} for i, (left_text, _) in enumerate(pairs)]
     right = [{"id": f"r{i+1}", "text": right_text} for i, (_, right_text) in enumerate(pairs)]
+    needs_review = has_duplicate_normalized_text([item["text"] for item in left]) or has_duplicate_normalized_text([item["text"] for item in right])
     return base_challenge(
         "match_pairs",
         "Соотнеси элементы",
@@ -468,7 +476,32 @@ def match_pairs_challenge(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         answers=[{"left_id": f"l{i+1}", "right_id": f"r{i+1}"} for i in range(len(pairs))],
         explanation="Пары связаны с материалом темы.",
         difficulty="medium",
-        tags=["seed", "match_pairs", "figma_import"],
+        tags=["seed", "match_pairs", "figma_import", *review_tags(needs_review)],
+        status="draft" if needs_review else "published",
+    )
+
+
+def has_result_challenge(challenges: list[dict[str, Any]]) -> bool:
+    return any("results" in challenge.get("tags", []) for challenge in challenges)
+
+
+def results_challenge(skill: dict[str, Any], results: list[str], all_facts: list[str]) -> dict[str, Any]:
+    correct = results[0]
+    distractors = [fact for fact in same_kind_distractors(correct, results, all_facts) if norm(fact) != norm(correct)]
+    while len(distractors) < 2:
+        fallback = f"Итог не относится к теме «{skill.get('title', '')}»."
+        if all(norm(item) != norm(fallback) for item in [correct, *distractors]):
+            distractors.append(fallback)
+        else:
+            distractors.append(f"Лишний вариант {len(distractors) + 1}")
+    options = [{"id": option_id(i), "text": text} for i, text in enumerate([correct, *distractors[:2]])]
+    return base_challenge(
+        "single_choice",
+        f"Какой итог относится к теме «{skill.get('title', '')}»?",
+        options=options,
+        answers=["a"],
+        explanation=correct,
+        tags=["seed", "quiz", "results", "figma_import"],
     )
 
 
@@ -485,8 +518,8 @@ def map_point_challenge(item: dict[str, Any]) -> dict[str, Any]:
         payload=map_payload(lat, lng, zoom=6),
         answers={"lat": lat, "lng": lng, "radius_m": radius},
         explanation=str(item.get("context", "")).strip() or f"{title} упоминается в материале темы.",
-        tags=["seed", "map", *review_tags(needs_review)],
-        status="draft" if needs_review else "published",
+        tags=["seed", "map", *review_tags(needs_review), *placeholder_tags(needs_review)],
+        status="published",
     )
 
 
@@ -509,8 +542,8 @@ def map_area_challenge(item: dict[str, Any]) -> dict[str, Any]:
         },
         explanation=str(item.get("context", "")).strip() or f"{title} дана как примерная историческая область.",
         difficulty="medium",
-        tags=["seed", "map", *review_tags(needs_review)],
-        status="draft" if needs_review else "published",
+        tags=["seed", "map", *review_tags(needs_review), *placeholder_tags(needs_review)],
+        status="published",
     )
 
 
@@ -541,9 +574,114 @@ def match_photos_challenge(item: dict[str, Any]) -> dict[str, Any]:
         answers=answers,
         explanation="; ".join(explanations),
         difficulty="medium",
-        tags=["seed", "photos", *review_tags(needs_review)],
-        status="draft" if needs_review else "published",
+        tags=["seed", "photos", *review_tags(needs_review), *placeholder_tags(needs_review)],
+        status="published",
     )
+
+
+def placeholder_map_point_challenge(skill: dict[str, Any], facts: list[str]) -> dict[str, Any]:
+    place = placeholder_place(skill, facts)
+    context = placeholder_context(skill, facts)
+    return base_challenge(
+        "map_point",
+        f"Укажи {place['title']} на карте",
+        body=context,
+        payload=map_payload(place["lat"], place["lng"], zoom=place["zoom"]),
+        answers={"lat": place["lat"], "lng": place["lng"], "radius_m": place["radius_m"]},
+        explanation=f"{place['title']} используется как временная точка для интерактивной карты. Координаты можно уточнить в seed/admin.",
+        tags=["seed", "map", "placeholder", "needs_review", "figma_import"],
+        status="published",
+    )
+
+
+def placeholder_map_area_challenge(skill: dict[str, Any], facts: list[str]) -> dict[str, Any]:
+    place = placeholder_place(skill, facts)
+    context = placeholder_context(skill, facts)
+    return base_challenge(
+        "map_area",
+        f"Обведи примерную область: {place['title']}",
+        body=context,
+        payload=map_payload(place["lat"], place["lng"], zoom=max(place["zoom"] - 1, 4)),
+        answers={
+            "center": {"lat": place["lat"], "lng": place["lng"]},
+            "area_m2": 2_500_000_000,
+            "center_radius_m": 120_000,
+            "area_tolerance": 1.0,
+        },
+        explanation=f"Это временная область для проверки механики карты по теме «{skill.get('title', '')}».",
+        difficulty="medium",
+        tags=["seed", "map", "placeholder", "needs_review", "figma_import"],
+        status="published",
+    )
+
+
+def placeholder_match_photos_challenge(skill: dict[str, Any], facts: list[str]) -> dict[str, Any]:
+    labels = placeholder_photo_labels(skill, facts)
+    photos = [
+        {"id": f"p{index}", "image_url": "", "alt": label}
+        for index, label in enumerate(labels, start=1)
+    ]
+    options = {
+        "photos": photos,
+        "labels": [{"id": f"l{index}", "text": label} for index, label in enumerate(labels, start=1)],
+    }
+    return base_challenge(
+        "match_photos",
+        f"Соотнеси фото-заглушки по теме «{skill.get('title', '')}»",
+        body="Изображения можно заменить позже; пока ориентируйся на alt-текст.",
+        payload={},
+        options=options,
+        answers=[{"photo_id": f"p{index}", "label_id": f"l{index}"} for index in range(1, len(labels) + 1)],
+        explanation="Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
+        difficulty="medium",
+        tags=["seed", "photos", "placeholder", "needs_review", "figma_import"],
+        status="published",
+    )
+
+
+def placeholder_place(skill: dict[str, Any], facts: list[str]) -> dict[str, Any]:
+    haystack = norm(" ".join([str(skill.get("title", "")), *facts]))
+    places = [
+        ("санкт-петербург", "Санкт-Петербург", 59.9343, 30.3351, 7.0, 60_000),
+        ("петербург", "Санкт-Петербург", 59.9343, 30.3351, 7.0, 60_000),
+        ("петроград", "Петроград", 59.9343, 30.3351, 7.0, 60_000),
+        ("москва", "Москва", 55.7558, 37.6173, 7.0, 60_000),
+        ("минск", "Минск", 53.9006, 27.5590, 7.0, 50_000),
+        ("симбирск", "Симбирск", 54.3142, 48.4031, 7.0, 50_000),
+        ("ульяновск", "Ульяновск", 54.3142, 48.4031, 7.0, 50_000),
+        ("алма-ата", "Алма-Ата", 43.2389, 76.8897, 7.0, 70_000),
+        ("казахстан", "Казахстан", 48.0196, 66.9237, 4.0, 500_000),
+        ("германия", "Германия", 51.1657, 10.4515, 5.0, 350_000),
+    ]
+    for needle, title, lat, lng, zoom, radius in places:
+        if needle in haystack:
+            return {"title": title, "lat": lat, "lng": lng, "zoom": zoom, "radius_m": radius}
+    return {"title": "Москва", "lat": 55.7558, "lng": 37.6173, "zoom": 6.0, "radius_m": 80_000}
+
+
+def placeholder_context(skill: dict[str, Any], facts: list[str]) -> str:
+    fact = best_fact(facts)
+    if fact:
+        return fact
+    return f"Временная интерактивная карта по теме «{skill.get('title', '')}»."
+
+
+def placeholder_photo_labels(skill: dict[str, Any], facts: list[str]) -> list[str]:
+    labels: list[str] = []
+    title = clean_text(skill.get("title", ""))
+    if title:
+        labels.append(title)
+    for fact in facts:
+        text = clean_text(fact)
+        if len(text) > 70:
+            text = text[:67].rstrip() + "..."
+        if text and norm(text) not in {norm(item) for item in labels}:
+            labels.append(text)
+        if len(labels) >= 2:
+            break
+    while len(labels) < 2:
+        labels.append(f"Фото-заглушка {len(labels) + 1}")
+    return labels[:2]
 
 
 def map_payload(lat: float, lng: float, *, zoom: float) -> dict[str, Any]:
@@ -557,6 +695,15 @@ def map_payload(lat: float, lng: float, *, zoom: float) -> dict[str, Any]:
 
 def review_tags(needs_review: bool) -> list[str]:
     return ["needs_review"] if needs_review else []
+
+
+def placeholder_tags(needs_review: bool) -> list[str]:
+    return ["placeholder"] if needs_review else []
+
+
+def has_duplicate_normalized_text(items: list[str]) -> bool:
+    normalized = [norm(item) for item in items if norm(item)]
+    return len(normalized) != len(set(normalized))
 
 
 def base_challenge(
@@ -663,7 +810,7 @@ def validate_match_photos_options_answers(options: Any, answers: Any) -> bool:
         return False
     photo_ids = set()
     for photo in photos:
-        if not isinstance(photo, dict) or not photo.get("id") or not photo.get("image_url") or not photo.get("alt"):
+        if not isinstance(photo, dict) or not photo.get("id") or not photo.get("alt"):
             return False
         photo_ids.add(photo["id"])
     label_ids = set()
@@ -682,7 +829,7 @@ def collect_all_facts(seed: dict[str, Any]) -> list[str]:
     for section in seed.get("sections", []):
         for unit in section.get("units", []):
             for skill in unit.get("skills", []):
-                facts.extend(learning_facts(skill, []))
+                facts.extend(clean_text(item) for item in skill.get("facts", []) if clean_text(item))
     return facts
 
 
@@ -695,9 +842,7 @@ def best_fact(facts: list[str]) -> str:
 
 def same_kind_distractors(correct: str, local_facts: list[str], all_facts: list[str]) -> list[str]:
     has_year = bool(re.search(r"\b(18\d{2}|19\d{2})\b", correct))
-    local_keys = {norm(fact) for fact in local_facts}
-    unrelated = [fact for fact in all_facts if fact and norm(fact) not in local_keys]
-    pool = [*unrelated, *[fact for fact in local_facts if fact and norm(fact) != norm(correct)]]
+    pool = [fact for fact in [*local_facts, *all_facts] if fact and norm(fact) != norm(correct)]
     if has_year:
         dated = [fact for fact in pool if re.search(r"\b(18\d{2}|19\d{2})\b", fact)]
         if len(dated) >= 2:
@@ -729,29 +874,6 @@ def option_id(index: int) -> str:
 
 def clean_text(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value).strip())
-
-
-def clean_list(values: Any) -> list[str]:
-    if not isinstance(values, list):
-        return []
-    return unique([clean_text(value) for value in values if clean_text(value)])
-
-
-def clean_pairs(values: Any) -> list[dict[str, str]]:
-    if not isinstance(values, list):
-        return []
-    out = []
-    seen = set()
-    for value in values:
-        if not isinstance(value, dict):
-            continue
-        cause = clean_text(value.get("cause", ""))
-        effect = clean_text(value.get("effect", ""))
-        key = (norm(cause), norm(effect))
-        if cause and effect and key not in seen:
-            seen.add(key)
-            out.append({"cause": cause, "effect": effect})
-    return out
 
 
 def norm(value: Any) -> str:

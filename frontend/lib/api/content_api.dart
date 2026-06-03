@@ -199,6 +199,24 @@ class ChallengeDto {
         'position': position,
       };
 
+  ChallengeDto copyWith({String? status}) => ChallengeDto(
+        id: id,
+        skillId: skillId,
+        type: type,
+        difficulty: difficulty,
+        tags: tags,
+        level: level,
+        lessonCount: lessonCount,
+        prompt: prompt,
+        body: body,
+        payload: payload,
+        options: options,
+        answers: answers,
+        explanation: explanation,
+        position: position,
+        status: status ?? this.status,
+      );
+
   String prettyJson(dynamic value) {
     const encoder = JsonEncoder.withIndent('  ');
     return encoder.convert(value ?? {});
@@ -247,58 +265,81 @@ class AuthoringContentApi {
   }
 
   Future<List<SectionDto>> listSections(String courseId) async {
-    final json = await _client.get('/editor/content/courses/$courseId/sections', auth: true);
+    final json = await _client.get('/editor/content/courses/$courseId/sections',
+        auth: true);
     return _list(json, SectionDto.fromJson);
   }
 
   Future<List<UnitDto>> listUnits(String sectionId) async {
-    final json = await _client.get('/editor/content/sections/$sectionId/units', auth: true);
+    final json = await _client.get('/editor/content/sections/$sectionId/units',
+        auth: true);
     return _list(json, UnitDto.fromJson);
   }
 
   Future<List<SkillDto>> listSkills(String unitId) async {
-    final json = await _client.get('/editor/content/units/$unitId/skills', auth: true);
+    final json =
+        await _client.get('/editor/content/units/$unitId/skills', auth: true);
     return _list(json, SkillDto.fromJson);
   }
 
   Future<List<ChallengeDto>> listChallenges(String skillId) async {
-    final json = await _client.get('/editor/content/skills/$skillId/challenges', auth: true);
+    final json = await _client.get('/editor/content/skills/$skillId/challenges',
+        auth: true);
     return _list(json, ChallengeDto.fromJson);
   }
 
   Future<CourseDto> saveCourse(CourseDto course) async {
     final json = course.id.isEmpty
-        ? await _client.post('/editor/content/courses', body: course.toWriteJson(), auth: true)
-        : await _client.patch('/editor/content/courses/${course.id}', body: course.toWriteJson(), auth: true);
+        ? await _client.post('/editor/content/courses',
+            body: course.toWriteJson(), auth: true)
+        : await _client.patch('/editor/content/courses/${course.id}',
+            body: course.toWriteJson(), auth: true);
     return CourseDto.fromJson(json as Map<String, dynamic>);
   }
 
   Future<SectionDto> saveSection(SectionDto section) async {
     final json = section.id.isEmpty
-        ? await _client.post('/editor/content/sections', body: section.toWriteJson(), auth: true)
-        : await _client.patch('/editor/content/sections/${section.id}', body: section.toWriteJson(), auth: true);
+        ? await _client.post('/editor/content/sections',
+            body: section.toWriteJson(), auth: true)
+        : await _client.patch('/editor/content/sections/${section.id}',
+            body: section.toWriteJson(), auth: true);
     return SectionDto.fromJson(json as Map<String, dynamic>);
   }
 
   Future<UnitDto> saveUnit(UnitDto unit) async {
     final json = unit.id.isEmpty
-        ? await _client.post('/editor/content/units', body: unit.toWriteJson(), auth: true)
-        : await _client.patch('/editor/content/units/${unit.id}', body: unit.toWriteJson(), auth: true);
+        ? await _client.post('/editor/content/units',
+            body: unit.toWriteJson(), auth: true)
+        : await _client.patch('/editor/content/units/${unit.id}',
+            body: unit.toWriteJson(), auth: true);
     return UnitDto.fromJson(json as Map<String, dynamic>);
   }
 
   Future<SkillDto> saveSkill(SkillDto skill) async {
     final json = skill.id.isEmpty
-        ? await _client.post('/editor/content/skills', body: skill.toWriteJson(), auth: true)
-        : await _client.patch('/editor/content/skills/${skill.id}', body: skill.toWriteJson(), auth: true);
+        ? await _client.post('/editor/content/skills',
+            body: skill.toWriteJson(), auth: true)
+        : await _client.patch('/editor/content/skills/${skill.id}',
+            body: skill.toWriteJson(), auth: true);
     return SkillDto.fromJson(json as Map<String, dynamic>);
   }
 
   Future<ChallengeDto> saveChallenge(ChallengeDto challenge) async {
     final json = challenge.id.isEmpty
-        ? await _client.post('/editor/content/challenges', body: challenge.toWriteJson(), auth: true)
-        : await _client.patch('/editor/content/challenges/${challenge.id}', body: challenge.toWriteJson(), auth: true);
-    return ChallengeDto.fromJson(json as Map<String, dynamic>);
+        ? await _client.post('/editor/content/challenges',
+            body: challenge.toWriteJson(), auth: true)
+        : await _client.patch('/editor/content/challenges/${challenge.id}',
+            body: challenge.toWriteJson(), auth: true);
+    final saved = ChallengeDto.fromJson(json as Map<String, dynamic>);
+    if (challenge.status == 'published' && saved.status != 'published') {
+      await publish('challenges', saved.id);
+      return saved.copyWith(status: 'published');
+    }
+    if (challenge.status == 'archived' && saved.status != 'archived') {
+      await archive('challenges', saved.id);
+      return saved.copyWith(status: 'archived');
+    }
+    return saved;
   }
 
   Future<void> publish(String entity, String id) async {
@@ -317,7 +358,10 @@ List<T> _list<T>(dynamic json, T Function(Map<String, dynamic>) fromJson) {
 
 List<String> _stringList(dynamic raw) {
   if (raw is List) {
-    return raw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList();
+    return raw
+        .map((item) => item.toString())
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
   }
   return const [];
 }

@@ -16,7 +16,7 @@ class TimelinePage extends StatefulWidget {
 }
 
 class _TimelinePageState extends State<TimelinePage> {
-  Future<List<TimelineEvent>>? _eventsFuture;
+  Future<_TimelineLoadResult>? _eventsFuture;
 
   static final _datePattern = RegExp(
     r'(?:(?:\d{1,2}\s+[А-Яа-яЁё]+|[А-Яа-яЁё]+(?:–|-)[А-Яа-яЁё]+|[А-Яа-яЁё]+)\s+)?(18\d{2}|19\d{2})',
@@ -30,7 +30,7 @@ class _TimelinePageState extends State<TimelinePage> {
     _eventsFuture ??= _loadEvents(ContentApi(session.client));
   }
 
-  Future<List<TimelineEvent>> _loadEvents(ContentApi api) async {
+  Future<_TimelineLoadResult> _loadEvents(ContentApi api) async {
     final collected = <_CollectedTimelineEvent>[];
     var order = 0;
     final courses = await api.listCourses();
@@ -66,12 +66,12 @@ class _TimelinePageState extends State<TimelinePage> {
         () => event,
       );
     }
-    final events = byKey.values.toList()
+    final collectedEvents = byKey.values.toList()
       ..sort((a, b) {
         final year = a.sortYear.compareTo(b.sortYear);
         return year != 0 ? year : a.order.compareTo(b.order);
       });
-    return events.map((item) => item.event).toList();
+    return _TimelineLoadResult.fromCollected(collectedEvents);
   }
 
   Iterable<String> _timelineTexts(
@@ -187,12 +187,28 @@ class _TimelinePageState extends State<TimelinePage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FutureBuilder<List<TimelineEvent>>(
+      body: FutureBuilder<_TimelineLoadResult>(
         future: _eventsFuture,
         builder: (context, snapshot) {
-          final events = snapshot.data?.isNotEmpty == true
-              ? snapshot.data!
-              : timelineEvents;
+          final isLoading =
+              snapshot.connectionState == ConnectionState.waiting &&
+                  snapshot.data == null;
+          final backendResult = snapshot.data;
+          final usingBackend =
+              !isLoading && backendResult?.events.isNotEmpty == true;
+          final result = usingBackend
+              ? backendResult!
+              : _TimelineLoadResult.fallback(timelineEvents);
+          final events = result.events;
+          final periodLabel = result.periodLabel;
+          final summaryLabel =
+              isLoading ? 'Загружаю события курса...' : '${events.length} событий · $periodLabel';
+          final sourceLabel = isLoading
+              ? 'Источник: загружаю опубликованный seed-контент'
+              : (usingBackend
+                  ? 'Источник: опубликованный seed-контент курса'
+                  : 'Источник: резервная лента');
+          final missing1991Warning = usingBackend && result.maxYear < 1991;
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -227,10 +243,18 @@ class _TimelinePageState extends State<TimelinePage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${events.length} событий с 1882 по 1991 год',
+                              summaryLabel,
                               style: GoogleFonts.lato(
                                 color: AppTheme.textSecondary,
                                 fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              sourceLabel,
+                              style: GoogleFonts.lato(
+                                color: AppTheme.textSecondary,
+                                fontSize: 11,
                               ),
                             ),
                           ],
@@ -275,7 +299,7 @@ class _TimelinePageState extends State<TimelinePage> {
                   ],
                 ),
                 const SizedBox(height: 22),
-                if (snapshot.connectionState == ConnectionState.waiting)
+                if (isLoading)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 36),
@@ -293,7 +317,15 @@ class _TimelinePageState extends State<TimelinePage> {
                       ),
                     ),
                   ),
-                HistoryTimeline(events: events),
+                if (missing1991Warning)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _TimelineWarning(
+                      message:
+                          'В seed/API не найдены опубликованные события 1991 года.',
+                    ),
+                  ),
+                if (!isLoading) HistoryTimeline(events: events),
                 const SizedBox(height: 20),
               ],
             ),
@@ -314,6 +346,79 @@ class _CollectedTimelineEvent {
     required this.order,
     required this.event,
   });
+}
+
+class _TimelineLoadResult {
+  final List<TimelineEvent> events;
+  final int minYear;
+  final int maxYear;
+
+  const _TimelineLoadResult({
+    required this.events,
+    required this.minYear,
+    required this.maxYear,
+  });
+
+  factory _TimelineLoadResult.fromCollected(
+      List<_CollectedTimelineEvent> collected) {
+    if (collected.isEmpty) {
+      return const _TimelineLoadResult(events: [], minYear: 0, maxYear: 0);
+    }
+    return _TimelineLoadResult(
+      events: collected.map((item) => item.event).toList(),
+      minYear: collected.first.sortYear,
+      maxYear: collected.last.sortYear,
+    );
+  }
+
+  factory _TimelineLoadResult.fallback(List<TimelineEvent> events) {
+    final years = events
+        .map((event) => RegExp(r'(18\d{2}|19\d{2})')
+            .firstMatch(event.year)
+            ?.group(1))
+        .whereType<String>()
+        .map(int.parse)
+        .toList()
+      ..sort();
+    return _TimelineLoadResult(
+      events: events,
+      minYear: years.isEmpty ? 0 : years.first,
+      maxYear: years.isEmpty ? 0 : years.last,
+    );
+  }
+
+  String get periodLabel {
+    if (minYear <= 0 || maxYear <= 0) return 'период не определён';
+    if (minYear == maxYear) return '$minYear год';
+    return '$minYear–$maxYear';
+  }
+}
+
+class _TimelineWarning extends StatelessWidget {
+  final String message;
+
+  const _TimelineWarning({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.error.withValues(alpha: 0.35)),
+      ),
+      child: ResponsiveText(
+        message,
+        style: GoogleFonts.lato(
+          color: AppTheme.error,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
 }
 
 class _LegendChip extends StatelessWidget {

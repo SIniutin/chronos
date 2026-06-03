@@ -33,8 +33,8 @@ func TestRunnerCreatesStructuredHistorySeed(t *testing.T) {
 	if content.createdChallenges != 535 {
 		t.Fatalf("expected 535 created challenges, got %d", content.createdChallenges)
 	}
-	if content.published["challenges"] != 529 {
-		t.Fatalf("expected 529 published challenges, got %d", content.published["challenges"])
+	if content.published["challenges"] != 462 {
+		t.Fatalf("expected 462 published challenges, got %d", content.published["challenges"])
 	}
 }
 

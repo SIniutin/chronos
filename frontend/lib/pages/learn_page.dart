@@ -45,6 +45,8 @@ class _LearnPageState extends State<LearnPage> {
 
   @override
   Widget build(BuildContext context) {
+    final rootSession = SessionScope.of(context);
+    AppTheme.currentMode = rootSession.themeMode;
     return FutureBuilder<CatalogSnapshot>(
       future: _catalog,
       builder: (context, snapshot) {
@@ -411,6 +413,8 @@ class LessonsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = SessionScope.of(context);
+    AppTheme.currentMode = session.themeMode;
     final eraLessons = lessons.where((l) => l.eraId == era.id).toList();
     return Scaffold(
       backgroundColor: AppTheme.primary,

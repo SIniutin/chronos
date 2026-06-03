@@ -34,6 +34,85 @@ func TestStartSessionUsesDefaultLimitAndStoresQueue(t *testing.T) {
 	}
 }
 
+func TestStartSessionAppliesLearnerSelectionRules(t *testing.T) {
+	userID := uuid.New()
+	skillID := uuid.New()
+	challenges := []cd.Challenge{
+		challengeForSession(skillID, cd.ChallengeTypeMapPoint, 1, `[]`, `{}`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeTheory, 2, `[]`, `[]`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeSingleChoice, 3, `["a"]`, `[]`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeTrueFalse, 4, `["true"]`, `[]`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeFillBlank, 5, `["1905"]`, `[]`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeMatchPairs, 6, `[{"left_id":"l1","right_id":"r1"}]`, `[]`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeMapArea, 7, `{}`, `[]`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeMatchPhotos, 8, `[{"photo_id":"p1","label_id":"l1"}]`, `{"photos":[{"id":"p1","image_url":"https://cdn.test/a.jpg","alt":"A"}],"labels":[{"id":"l1","text":"A"}]}`, cd.ContentStatusPublished),
+		challengeForSession(skillID, cd.ChallengeTypeSingleChoice, 9, `["a"]`, `[]`, cd.ContentStatusDraft),
+		challengeWithTags(skillID, cd.ChallengeTypeSingleChoice, 10, []string{"placeholder"}),
+		challengeWithTags(skillID, cd.ChallengeTypeTrueFalse, 11, []string{"needs_review"}),
+	}
+	repo := newLearningMemoryRepo()
+	content := &contentMemoryRepo{challenges: challenges}
+	uc := NewServiceFromRepository(repo, content)
+
+	session, err := uc.StartSession(context.Background(), learning_api.StartSessionInput{
+		UserID:  userID.String(),
+		SkillID: skillID.String(),
+		Limit:   10,
+	})
+	if err != nil {
+		t.Fatalf("start session failed: %v", err)
+	}
+	queue := repo.queues[mustSessionID(t, session.ID)]
+	if len(queue) > maxSessionLimit {
+		t.Fatalf("expected max %d challenges, got %d", maxSessionLimit, len(queue))
+	}
+	first := content.challengeByID(queue[0].ChallengeID)
+	if first.Type != cd.ChallengeTypeTheory {
+		t.Fatalf("expected theory first, got %s", first.Type)
+	}
+	interactive := 0
+	for _, item := range queue {
+		challenge := content.challengeByID(item.ChallengeID)
+		if challenge.Status != cd.ContentStatusPublished {
+			t.Fatalf("non-published challenge selected: %+v", challenge)
+		}
+		if hasAnyTag(challenge.Tags, "placeholder", "needs_review") {
+			t.Fatalf("placeholder/review challenge selected: %+v", challenge)
+		}
+		switch challenge.Type {
+		case cd.ChallengeTypeMapPoint, cd.ChallengeTypeMapArea, cd.ChallengeTypeMatchPhotos:
+			interactive++
+		}
+	}
+	if interactive > 1 {
+		t.Fatalf("expected at most one interactive challenge, got %d", interactive)
+	}
+}
+
+func TestStartSessionExcludesUnsafeMatchPhotos(t *testing.T) {
+	userID := uuid.New()
+	skillID := uuid.New()
+	unsafePhotos := challengeForSession(skillID, cd.ChallengeTypeMatchPhotos, 1, `[{"photo_id":"p1","label_id":"l1"}]`, `{"photos":[{"id":"p1","image_url":"","alt":"A"}],"labels":[{"id":"l1","text":"A"}]}`, cd.ContentStatusPublished)
+	theory := challengeForSession(skillID, cd.ChallengeTypeTheory, 2, `[]`, `[]`, cd.ContentStatusPublished)
+	choice := challengeForSession(skillID, cd.ChallengeTypeSingleChoice, 3, `["a"]`, `[]`, cd.ContentStatusPublished)
+	repo := newLearningMemoryRepo()
+	content := &contentMemoryRepo{challenges: []cd.Challenge{unsafePhotos, theory, choice}}
+	uc := NewServiceFromRepository(repo, content)
+
+	session, err := uc.StartSession(context.Background(), learning_api.StartSessionInput{
+		UserID:  userID.String(),
+		SkillID: skillID.String(),
+	})
+	if err != nil {
+		t.Fatalf("start session failed: %v", err)
+	}
+	for _, item := range repo.queues[mustSessionID(t, session.ID)] {
+		if content.challengeByID(item.ChallengeID).Type == cd.ChallengeTypeMatchPhotos {
+			t.Fatalf("unsafe match_photos should not be selected")
+		}
+	}
+}
+
 func TestStartSessionUsesChallengePicker(t *testing.T) {
 	userID := uuid.New()
 	skillID := uuid.New()
@@ -50,6 +129,33 @@ func TestStartSessionUsesChallengePicker(t *testing.T) {
 	queue := repo.queues[mustSessionID(t, session.ID)]
 	if len(queue) != 2 || queue[0].ChallengeID != domain.ChallengeID(challenges[2].ID) || queue[1].ChallengeID != domain.ChallengeID(challenges[0].ID) {
 		t.Fatalf("expected picker order, got %+v", queue)
+	}
+}
+
+func TestStartSessionFiltersChallengePickerOutput(t *testing.T) {
+	userID := uuid.New()
+	skillID := uuid.New()
+	safe := challengeForSession(skillID, cd.ChallengeTypeSingleChoice, 1, `["a"]`, `[]`, cd.ContentStatusPublished)
+	placeholder := challengeWithTags(skillID, cd.ChallengeTypeMapPoint, 2, []string{"placeholder"})
+	unsafePhotos := challengeForSession(skillID, cd.ChallengeTypeMatchPhotos, 3, `[{"photo_id":"p1","label_id":"l1"}]`, `{"photos":[{"id":"p1","image_url":"","alt":"A"}],"labels":[{"id":"l1","text":"A"}]}`, cd.ContentStatusPublished)
+	content := &contentMemoryRepo{challenges: []cd.Challenge{placeholder, safe, unsafePhotos}}
+	repo := newLearningMemoryRepo()
+	picker := &memoryPicker{ids: []domain.ChallengeID{
+		domain.ChallengeID(placeholder.ID),
+		domain.ChallengeID(safe.ID),
+		domain.ChallengeID(unsafePhotos.ID),
+	}}
+	uc := NewService(Dependencies{Sessions: repo, Queue: repo, Attempts: repo, Content: content, Picker: picker})
+
+	session, err := uc.StartSession(context.Background(), learning_api.StartSessionInput{
+		UserID: userID.String(), SkillID: skillID.String(), Limit: 3,
+	})
+	if err != nil {
+		t.Fatalf("start session failed: %v", err)
+	}
+	queue := repo.queues[mustSessionID(t, session.ID)]
+	if len(queue) != 1 || queue[0].ChallengeID != domain.ChallengeID(safe.ID) {
+		t.Fatalf("expected only safe picker challenge, got %+v", queue)
 	}
 }
 
@@ -221,6 +327,15 @@ func (r *contentMemoryRepo) GetChallenge(_ context.Context, id cd.ChallengeID) (
 	return cd.Challenge{}, cd.ErrNotFound
 }
 
+func (r *contentMemoryRepo) challengeByID(id domain.ChallengeID) cd.Challenge {
+	for _, challenge := range r.challenges {
+		if domain.ChallengeID(challenge.ID) == id {
+			return challenge
+		}
+	}
+	return cd.Challenge{}
+}
+
 type learningMemoryRepo struct {
 	sessions  map[domain.LessonSessionID]*domain.LessonSession
 	queues    map[domain.LessonSessionID][]domain.LessonSessionChallenge
@@ -354,6 +469,40 @@ func makeChallenges(skillID uuid.UUID, count int) []cd.Challenge {
 		})
 	}
 	return challenges
+}
+
+func challengeForSession(skillID uuid.UUID, challengeType cd.ChallengeType, position int, answers string, options string, status cd.ContentStatus) cd.Challenge {
+	if options == "" {
+		options = `[]`
+	}
+	return cd.Challenge{
+		ID:          cd.ChallengeID(uuid.New()),
+		SkillID:     cd.SkillID(skillID),
+		Type:        challengeType,
+		Difficulty:  cd.DifficultyEasy,
+		Tags:        json.RawMessage(`[]`),
+		Options:     json.RawMessage(options),
+		Answers:     json.RawMessage(answers),
+		Explanation: "Because",
+		Position:    position,
+		Status:      status,
+	}
+}
+
+func challengeWithTags(skillID uuid.UUID, challengeType cd.ChallengeType, position int, tags []string) cd.Challenge {
+	rawTags, _ := json.Marshal(tags)
+	return cd.Challenge{
+		ID:          cd.ChallengeID(uuid.New()),
+		SkillID:     cd.SkillID(skillID),
+		Type:        challengeType,
+		Difficulty:  cd.DifficultyEasy,
+		Tags:        json.RawMessage(rawTags),
+		Options:     json.RawMessage(`[]`),
+		Answers:     json.RawMessage(`["a"]`),
+		Explanation: "Because",
+		Position:    position,
+		Status:      cd.ContentStatusPublished,
+	}
 }
 
 func mustSessionID(t *testing.T, raw string) domain.LessonSessionID {

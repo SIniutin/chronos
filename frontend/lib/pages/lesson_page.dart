@@ -33,7 +33,8 @@ class _LessonPageState extends State<LessonPage> {
                   color: AppTheme.overlayOnImage,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.arrow_back_ios, color: AppTheme.textPrimary, size: 16),
+                child: Icon(Icons.arrow_back_ios,
+                    color: AppTheme.textPrimary, size: 16),
               ),
               onPressed: () => Navigator.pop(context),
             ),
@@ -77,7 +78,9 @@ class _LessonPageState extends State<LessonPage> {
                               lesson.title,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.playfairDisplay(
-                                color: AppTheme.isLight ? AppTheme.textPrimary : Colors.white,
+                                color: AppTheme.isLight
+                                    ? AppTheme.textPrimary
+                                    : Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -103,10 +106,19 @@ class _LessonPageState extends State<LessonPage> {
                     spacing: 10,
                     runSpacing: 8,
                     children: [
-                      _MetaChip(icon: Icons.timer_outlined, label: lesson.duration, color: AppTheme.accent),
-                      _MetaChip(icon: Icons.signal_cellular_alt, label: lesson.difficulty, color: const Color(0xFF5C7AEA)),
+                      _MetaChip(
+                          icon: Icons.timer_outlined,
+                          label: lesson.duration,
+                          color: AppTheme.accent),
+                      _MetaChip(
+                          icon: Icons.signal_cellular_alt,
+                          label: lesson.difficulty,
+                          color: const Color(0xFF5C7AEA)),
                       if (lesson.isCompleted)
-                        const _MetaChip(icon: Icons.check_circle, label: 'Пройдено', color: AppTheme.correct),
+                        const _MetaChip(
+                            icon: Icons.check_circle,
+                            label: 'Пройдено',
+                            color: AppTheme.correct),
                     ],
                   ),
 
@@ -164,6 +176,25 @@ class _LessonPageState extends State<LessonPage> {
                     title: 'Историческое значение',
                     content: _getSignificance(lesson),
                   ),
+
+                  if (lesson.challengePreviews.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Что будет в заданиях',
+                      style: GoogleFonts.playfairDisplay(
+                        color: AppTheme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...lesson.challengePreviews.take(7).map(
+                          (preview) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _ChallengePreviewCard(preview: preview),
+                          ),
+                        ),
+                  ],
 
                   const SizedBox(height: 36),
 
@@ -235,12 +266,69 @@ class _LessonPageState extends State<LessonPage> {
   }
 }
 
+class _ChallengePreviewCard extends StatelessWidget {
+  final ChallengePreview preview;
+
+  const _ChallengePreviewCard({required this.preview});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            preview.isInteractive
+                ? Icons.touch_app_outlined
+                : Icons.quiz_outlined,
+            color: preview.isInteractive
+                ? AppTheme.accent
+                : AppTheme.textSecondary,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ResponsiveText(
+                  preview.prompt,
+                  style: GoogleFonts.lato(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                ResponsiveText(
+                  preview.description,
+                  style: GoogleFonts.lato(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetaChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
 
-  const _MetaChip({required this.icon, required this.label, required this.color});
+  const _MetaChip(
+      {required this.icon, required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +349,8 @@ class _MetaChip extends StatelessWidget {
             Flexible(
               child: ResponsiveText(
                 label,
-                style: GoogleFonts.lato(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+                style: GoogleFonts.lato(
+                    color: color, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -293,7 +382,9 @@ class _FactCardState extends State<_FactCard> {
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: _expanded ? AppTheme.accent.withValues(alpha: 0.5) : AppTheme.cardBg,
+            color: _expanded
+                ? AppTheme.accent.withValues(alpha: 0.5)
+                : AppTheme.cardBg,
           ),
         ),
         child: Row(

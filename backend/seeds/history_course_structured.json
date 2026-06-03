@@ -337,7 +337,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -694,7 +694,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ]
             },
@@ -1086,7 +1086,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 9,
-                  "status": "published"
+                  "status": "draft"
                 }
               ]
             }
@@ -1429,7 +1429,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ]
             },
@@ -1783,7 +1783,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ]
             }
@@ -2144,7 +2144,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ]
             },
@@ -2496,7 +2496,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ]
             }
@@ -2873,7 +2873,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -3243,7 +3243,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -3605,7 +3605,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -3933,7 +3933,7 @@
                   ],
                   "explanation": "В. И. Ленин: Революционер, связанный с большевистским движением; Г. В. Плеханов: Один из лидеров меньшевистского течения",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_area",
@@ -4296,7 +4296,7 @@
                   ],
                   "explanation": "В. И. Ленин: Лидер большевистского крыла российской социал-демократии; Г. В. Плеханов: Один из лидеров меньшевистского течения",
                   "position": 6,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_point",
@@ -4677,7 +4677,7 @@
                   ],
                   "explanation": "В. И. Ленин: Лидер большевистского крыла российской социал-демократии; Г. В. Плеханов: Один из лидеров меньшевистского течения",
                   "position": 6,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_point",
@@ -5145,7 +5145,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 9,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [
@@ -5483,7 +5483,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -5805,7 +5805,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -6131,7 +6131,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -6410,7 +6410,7 @@
                   ],
                   "explanation": "С. Ю. Витте: Министр финансов, связанный с денежной реформой; Николай II: Последний российский император; В. И. Ленин: Лидер большевистского крыла российской социал-демократии",
                   "position": 6,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_point",
@@ -6826,7 +6826,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -7156,7 +7156,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -7464,7 +7464,7 @@
                   ],
                   "explanation": "В. И. Ленин: Революционер, связанный с большевистским движением; Г. В. Плеханов: Один из лидеров меньшевистского течения",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_area",
@@ -7796,7 +7796,7 @@
                   ],
                   "explanation": "В. И. Ленин: Лидер большевистского крыла российской социал-демократии; Г. В. Плеханов: Один из лидеров меньшевистского течения",
                   "position": 6,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_point",
@@ -8075,7 +8075,7 @@
                   ],
                   "explanation": "В. И. Ленин: Лидер большевистского крыла российской социал-демократии; Г. В. Плеханов: Один из лидеров меньшевистского течения",
                   "position": 5,
-                  "status": "published"
+                  "status": "draft"
                 },
                 {
                   "type": "map_point",
@@ -8486,7 +8486,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -8818,7 +8818,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -9172,7 +9172,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -9607,7 +9607,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 9,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [
@@ -9981,7 +9981,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -10249,7 +10249,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -10510,7 +10510,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -10826,7 +10826,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -11076,7 +11076,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -11413,7 +11413,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -11726,7 +11726,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -12070,7 +12070,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -12391,7 +12391,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -12728,7 +12728,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -13068,7 +13068,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -13408,7 +13408,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -13749,7 +13749,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -14089,7 +14089,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -14403,7 +14403,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -14713,7 +14713,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -15039,7 +15039,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -15381,7 +15381,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -15695,7 +15695,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -16007,7 +16007,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -16272,7 +16272,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -16588,7 +16588,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -16902,7 +16902,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -17242,7 +17242,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -17584,7 +17584,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -17948,7 +17948,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 9,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [
@@ -18293,7 +18293,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -18623,7 +18623,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -18964,7 +18964,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -19255,7 +19255,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [
@@ -19599,7 +19599,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -19909,7 +19909,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -20221,7 +20221,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -20527,7 +20527,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -20795,7 +20795,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 7,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -21103,7 +21103,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -21443,7 +21443,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -21820,7 +21820,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 9,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [
@@ -22134,7 +22134,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],
@@ -22459,7 +22459,7 @@
                   ],
                   "explanation": "Временное фото-задание: реальные изображения нужно добавить через seed/admin.",
                   "position": 8,
-                  "status": "published"
+                  "status": "draft"
                 }
               ],
               "results": [],

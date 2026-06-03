@@ -50,4 +50,41 @@ The merge is idempotent, keeps existing curated sections and challenges,
 creates missing `sections -> units -> skills` from `normalized_course.json`,
 generates required `theory/single_choice/true_false` challenges for every
 skill, appends interactive placeholders when source data is missing, and
-validates `answers` references for map/photo formats.
+validates `answers` references for map/photo formats. Dry runs also report
+`match_photos` media stats, including total tasks, draft placeholders, empty
+image URLs, and published tasks with real image URLs.
+
+## Media uploads for photo challenges
+
+The current media strategy stores direct public object URLs in
+`options.photos[].image_url`. The backend does not persist a separate
+`media_id` for challenge images yet.
+
+Upload contract:
+
+```http
+POST /editor/media/images
+Content-Type: multipart/form-data
+Authorization: Bearer <token>
+
+file=<png|jpeg|webp image>
+```
+
+The endpoint is available to `content_editor` and `admin`, validates
+`image/png`, `image/jpeg`, and `image/webp`, limits uploads to 8 MiB, stores
+the object in the configured MinIO/S3 bucket, and returns:
+
+```json
+{
+  "url": "http://localhost:9000/history-media/images/2026/06/<uuid>.jpg",
+  "key": "images/2026/06/<uuid>.jpg",
+  "content_type": "image/jpeg",
+  "size": 12345
+}
+```
+
+Admin saves the returned `url` into `match_photos.options.photos[].image_url`.
+`match_photos` with empty or non-storage image URLs stay `draft` and keep
+`placeholder`/`needs_review` tags. Published photo tasks must use real media
+URLs; local placeholder paths such as `/images/history/...jpg` are not treated
+as production media.

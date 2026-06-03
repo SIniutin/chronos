@@ -29,6 +29,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
   @override
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
+    AppTheme.currentMode = session.themeMode;
     final user = session.currentUser;
     final tabs = [
       const _PanelTab('Контент', Icons.account_tree_outlined),
@@ -130,6 +131,13 @@ String _challengeTypeLabel(String type) => switch (type) {
       _ => type,
     };
 
+bool _isRealMediaUrl(String url) {
+  final value = url.trim();
+  return value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('/media/');
+}
+
 class _ContentTreeEditor extends StatefulWidget {
   final _ContentMode mode;
 
@@ -146,6 +154,7 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
   List<UnitDto> _units = [];
   List<SkillDto> _skills = [];
   List<ChallengeDto> _challenges = [];
+  final Map<String, _SkillChallengeStats> _skillStats = {};
   CourseDto? _course;
   SectionDto? _section;
   UnitDto? _unit;
@@ -202,6 +211,7 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
           _sections = sections;
           _units = [];
           _skills = [];
+          _skillStats.clear();
           _challenges = [];
         });
       });
@@ -214,16 +224,25 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
           _skill = null;
           _units = units;
           _skills = [];
+          _skillStats.clear();
           _challenges = [];
         });
       });
 
   Future<void> _selectUnit(UnitDto unit) => _guard(() async {
         final skills = await _api.listSkills(unit.id);
+        final stats = <String, _SkillChallengeStats>{};
+        for (final skill in skills) {
+          final challenges = await _api.listChallenges(skill.id);
+          stats[skill.id] = _SkillChallengeStats.fromChallenges(challenges);
+        }
         setState(() {
           _unit = unit;
           _skill = null;
           _skills = skills;
+          _skillStats
+            ..clear()
+            ..addAll(stats);
           _challenges = [];
         });
       });
@@ -311,20 +330,27 @@ class _ContentTreeEditorState extends State<_ContentTreeEditor> {
                 title: 'Навыки',
                 canAdd: _canEdit,
                 onAdd: () => _editSkill(null)),
-            ..._skills.map((skill) => _EntityTile(
-                  title: '${skill.icon} ${skill.title}',
-                  subtitle: 'Порядок показа: ${skill.position}',
-                  status: skill.status,
-                  selected: _skill?.id == skill.id,
-                  onTap: () => _selectSkill(skill),
-                  onEdit: _canEdit ? () => _editSkill(skill) : null,
-                  onPublish: _canPublish
-                      ? () => _transition('skills', skill.id, publish: true)
-                      : null,
-                  onArchive: _canArchive
-                      ? () => _transition('skills', skill.id, publish: false)
-                      : null,
-                )),
+            ..._skills.map((skill) {
+              final stats = _skillStats[skill.id];
+              return _EntityTile(
+                title: '${skill.icon} ${skill.title}',
+                subtitle: [
+                  'Порядок показа: ${skill.position}',
+                  if (stats != null) stats.summary,
+                  if (stats != null && stats.warning.isNotEmpty) stats.warning,
+                ].join(' · '),
+                status: skill.status,
+                selected: _skill?.id == skill.id,
+                onTap: () => _selectSkill(skill),
+                onEdit: _canEdit ? () => _editSkill(skill) : null,
+                onPublish: _canPublish
+                    ? () => _transition('skills', skill.id, publish: true)
+                    : null,
+                onArchive: _canArchive
+                    ? () => _transition('skills', skill.id, publish: false)
+                    : null,
+              );
+            }),
           ],
           if (_skill != null) ...[
             _HeaderRow(
@@ -479,6 +505,101 @@ class _HeaderRow extends StatelessWidget {
   }
 }
 
+class _SkillChallengeStats {
+  final int total;
+  final int published;
+  final int draft;
+  final int placeholder;
+  final int interactive;
+  final int learnerVisible;
+  final int learnerVisibleInteractive;
+  final bool hasTheory;
+  final bool hasPublishedPlaceholder;
+  final bool hasUnsafePublishedPhotos;
+
+  const _SkillChallengeStats({
+    required this.total,
+    required this.published,
+    required this.draft,
+    required this.placeholder,
+    required this.interactive,
+    required this.learnerVisible,
+    required this.learnerVisibleInteractive,
+    required this.hasTheory,
+    required this.hasPublishedPlaceholder,
+    required this.hasUnsafePublishedPhotos,
+  });
+
+  factory _SkillChallengeStats.fromChallenges(List<ChallengeDto> challenges) {
+    var published = 0;
+    var draft = 0;
+    var placeholder = 0;
+    var interactive = 0;
+    var learnerVisible = 0;
+    var learnerVisibleInteractive = 0;
+    var hasTheory = false;
+    var hasPublishedPlaceholder = false;
+    var hasUnsafePublishedPhotos = false;
+    for (final challenge in challenges) {
+      final isPublished = challenge.status == 'published';
+      final isDraft = challenge.status == 'draft';
+      final isPlaceholder = challenge.tags.contains('placeholder') ||
+          challenge.tags.contains('needs_review');
+      final isInteractive = _isInteractiveType(challenge.type);
+      final unsafePhotos = challenge.type == 'match_photos' &&
+          _matchPhotosHasEmptyImageUrl(challenge.options);
+      if (isPublished) published++;
+      if (isDraft) draft++;
+      if (isPlaceholder) placeholder++;
+      if (isInteractive) interactive++;
+      if (challenge.type == 'theory') hasTheory = true;
+      if (isPublished && isPlaceholder) hasPublishedPlaceholder = true;
+      if (isPublished && unsafePhotos) hasUnsafePublishedPhotos = true;
+      if (isPublished && !isPlaceholder && !unsafePhotos) {
+        learnerVisible++;
+        if (isInteractive) learnerVisibleInteractive++;
+      }
+    }
+    return _SkillChallengeStats(
+      total: challenges.length,
+      published: published,
+      draft: draft,
+      placeholder: placeholder,
+      interactive: interactive,
+      learnerVisible: learnerVisible,
+      learnerVisibleInteractive: learnerVisibleInteractive,
+      hasTheory: hasTheory,
+      hasPublishedPlaceholder: hasPublishedPlaceholder,
+      hasUnsafePublishedPhotos: hasUnsafePublishedPhotos,
+    );
+  }
+
+  String get summary =>
+      'Всего: $total, published: $published, draft: $draft, placeholder: $placeholder, interactive: $interactive';
+
+  String get warning {
+    final warnings = <String>[];
+    if (learnerVisible > 7) warnings.add('>7 learner-visible');
+    if (learnerVisibleInteractive > 1) warnings.add('>1 interactive');
+    if (!hasTheory) warnings.add('нет theory');
+    if (hasPublishedPlaceholder) warnings.add('published placeholder');
+    if (hasUnsafePublishedPhotos) warnings.add('empty photo URL');
+    return warnings.isEmpty ? '' : '⚠ ${warnings.join(', ')}';
+  }
+
+  static bool _isInteractiveType(String type) =>
+      type == 'map_point' || type == 'map_area' || type == 'match_photos';
+
+  static bool _matchPhotosHasEmptyImageUrl(dynamic options) {
+    if (options is! Map || options['photos'] is! List) return true;
+    final photos = options['photos'] as List;
+    if (photos.isEmpty) return true;
+    return photos.any((photo) =>
+        photo is! Map ||
+        !_isRealMediaUrl('${photo['image_url'] ?? photo['imageUrl'] ?? ''}'));
+  }
+}
+
 class _EntityTile extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -527,7 +648,7 @@ class _EntityTile extends StatelessWidget {
         ),
         subtitle: Text(
           '$subtitle · ${_statusLabel(status)}',
-          maxLines: 2,
+          maxLines: 4,
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.lato(color: AppTheme.textSecondary),
         ),
@@ -921,6 +1042,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
   final _answers = TextEditingController();
   final _explanation = TextEditingController();
   final _position = TextEditingController();
+  final _status = TextEditingController();
   final _mapCenterLat = TextEditingController();
   final _mapCenterLng = TextEditingController();
   final _mapZoom = TextEditingController();
@@ -931,6 +1053,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
   final _mapAreaTolerance = TextEditingController();
   String? _error;
   bool _uploadingImage = false;
+  int? _uploadingMatchPhotoIndex;
   LatLng? _mapPointAnswer;
   final List<LatLng> _mapAreaPoints = [];
   LatLng? _mapAreaCenterAnswer;
@@ -950,6 +1073,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     _body.text = challenge?.body ?? '';
     _explanation.text = challenge?.explanation ?? '';
     _position.text = '${challenge?.position ?? 1}';
+    _status.text = challenge?.status ?? 'draft';
     if (challenge == null) {
       _applyTemplate(_type.text);
     } else {
@@ -971,6 +1095,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     _answers.dispose();
     _explanation.dispose();
     _position.dispose();
+    _status.dispose();
     _mapCenterLat.dispose();
     _mapCenterLng.dispose();
     _mapZoom.dispose();
@@ -1020,6 +1145,21 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
               .toList(),
           onChanged: (value) =>
               setState(() => _difficulty.text = value ?? 'easy'),
+        ),
+        DropdownButtonFormField<String>(
+          initialValue: ['draft', 'published', 'archived', 'updating']
+                  .contains(_status.text)
+              ? _status.text
+              : 'draft',
+          dropdownColor: AppTheme.surface,
+          decoration: _inputDecoration('Статус'),
+          items: const [
+            DropdownMenuItem(value: 'draft', child: Text('draft')),
+            DropdownMenuItem(value: 'published', child: Text('published')),
+            DropdownMenuItem(value: 'updating', child: Text('updating')),
+            DropdownMenuItem(value: 'archived', child: Text('archived')),
+          ],
+          onChanged: (value) => setState(() => _status.text = value ?? 'draft'),
         ),
         _TextInput(controller: _tags, label: 'Теги через запятую'),
         _TextInput(
@@ -1077,11 +1217,26 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
             onAdvancedChanged: (value) =>
                 setState(() => _mapAdvancedOpen = value),
             onCenterFromAnswer: _centerMapFromAnswer,
+            onCopyCenterToAnswer: _copyMapCenterToAnswer,
+            onAreaSimplify: _simplifyMapArea,
+            onResetDefaults: _resetMapEditorFromButton,
           )
         else if (_usesPayload(type))
           _TextInput(
               controller: _payload, label: _payloadLabel(type), maxLines: 5),
-        if (_usesOptions(type))
+        if (type == 'match_photos')
+          _MatchPhotosAuthoringEditor(
+            lines: _nonEmptyLines(_options.text),
+            published: _status.text == 'published',
+            uploadingIndex: _uploadingMatchPhotoIndex,
+            onUpload: (index) {
+              if (!_uploadingImage) {
+                _pickAndUploadImage(type, photoIndex: index);
+              }
+            },
+            onChanged: _setMatchPhotoLines,
+          )
+        else if (_usesOptions(type))
           _TextInput(
               controller: _options, label: _optionsLabel(type), maxLines: 5),
         if (!_isMapType(type) && _usesAnswers(type))
@@ -1099,6 +1254,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       onSave: () {
         try {
           _validateMapEditor();
+          _validateMatchPhotosEditor();
           Navigator.pop(
             context,
             ChallengeDto(
@@ -1120,7 +1276,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
               answers: _answersValue(),
               explanation: _explanation.text,
               position: int.tryParse(_position.text) ?? 1,
-              status: widget.challenge?.status ?? 'draft',
+              status: _status.text.isEmpty ? 'draft' : _status.text,
             ),
           );
         } catch (_) {
@@ -1185,7 +1341,7 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     }
   }
 
-  Future<void> _pickAndUploadImage(String type) async {
+  Future<void> _pickAndUploadImage(String type, {int? photoIndex}) async {
     final client = SessionScope.of(context).client;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -1197,6 +1353,9 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     if (file == null || bytes == null) return;
     setState(() {
       _uploadingImage = true;
+      if (type == 'match_photos') {
+        _uploadingMatchPhotoIndex = photoIndex;
+      }
       _error = null;
     });
     try {
@@ -1211,24 +1370,39 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
           final lines = _nonEmptyLines(_payload.text);
           final alt = lines.length > 1 ? lines.sublist(1).join(' ') : '';
           _payload.text = [upload.url, if (alt.isNotEmpty) alt].join('\n');
-        } else if (type == 'match_image' || type == 'match_photos') {
+        } else if (type == 'match_photos') {
+          final lines = _nonEmptyLines(_options.text);
+          final rows = lines.map(_MatchPhotoLine.fromLine).toList();
+          if (photoIndex != null &&
+              photoIndex >= 0 &&
+              photoIndex < rows.length) {
+            rows[photoIndex] = rows[photoIndex].copyWith(imageUrl: upload.url);
+          } else {
+            rows.add(_MatchPhotoLine(
+                imageUrl: upload.url, alt: 'Изображение', label: 'Подпись'));
+          }
+          _options.text = rows.map((row) => row.toLine()).join('\n');
+        } else if (type == 'match_image') {
           final lines = _nonEmptyLines(_options.text);
           lines.add('${upload.url} | Изображение | Подпись');
           _options.text = lines.join('\n');
         }
         _uploadingImage = false;
+        _uploadingMatchPhotoIndex = null;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.message;
         _uploadingImage = false;
+        _uploadingMatchPhotoIndex = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = 'Не удалось загрузить изображение';
         _uploadingImage = false;
+        _uploadingMatchPhotoIndex = null;
       });
     }
   }
@@ -1258,6 +1432,22 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
     _mapAreaCenterAnswer = null;
     _mapAreaM2 = null;
     _syncMapRawJson();
+  }
+
+  void _resetMapEditorFromButton() {
+    setState(_resetMapEditor);
+  }
+
+  void _copyMapCenterToAnswer() {
+    final center = _mapCenter();
+    setState(() {
+      if (_type.text == 'map_point') {
+        _mapPointAnswer = center;
+      } else if (_type.text == 'map_area') {
+        _mapAreaCenterAnswer = center;
+      }
+      _syncMapRawJson();
+    });
   }
 
   void _hydrateMapEditor(ChallengeDto challenge) {
@@ -1302,9 +1492,35 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
 
   void _addMapAreaPoint(LatLng point) {
     setState(() {
+      if (_mapAreaPoints.isNotEmpty) {
+        final distance =
+            const Distance().as(LengthUnit.Meter, _mapAreaPoints.last, point);
+        if (distance.abs() < 250) return;
+      }
       _mapAreaPoints.add(point);
       _mapAreaCenterAnswer = null;
       _mapAreaM2 = null;
+      _syncMapRawJson();
+    });
+  }
+
+  void _simplifyMapArea() {
+    if (_mapAreaPoints.length <= 30) return;
+    final step = (_mapAreaPoints.length / 30).ceil();
+    final simplified = <LatLng>[];
+    for (var i = 0; i < _mapAreaPoints.length; i += step) {
+      simplified.add(_mapAreaPoints[i]);
+    }
+    if (simplified.last != _mapAreaPoints.last) {
+      simplified.add(_mapAreaPoints.last);
+    }
+    final stats = simplified.length >= 3 ? _polygonStats(simplified) : null;
+    setState(() {
+      _mapAreaPoints
+        ..clear()
+        ..addAll(simplified);
+      _mapAreaCenterAnswer = stats?.center;
+      _mapAreaM2 = stats?.areaM2;
       _syncMapRawJson();
     });
   }
@@ -1337,6 +1553,32 @@ class _ChallengeDialogState extends State<_ChallengeDialog> {
       _mapCenterLng.text = _formatCoord(center.longitude);
       _syncMapRawJson();
     });
+  }
+
+  void _setMatchPhotoLines(List<String> lines) {
+    setState(() {
+      _options.text = lines.join('\n');
+    });
+  }
+
+  void _validateMatchPhotosEditor() {
+    if (_type.text != 'match_photos') return;
+    final rows = _nonEmptyLines(_options.text)
+        .map(_MatchPhotoLine.fromLine)
+        .where((row) => !row.isBlank)
+        .toList();
+    if (rows.length < 2) {
+      throw const FormatException('match_photos needs at least two pairs');
+    }
+    for (final row in rows) {
+      if (row.label.trim().isEmpty || row.alt.trim().isEmpty) {
+        throw const FormatException('match_photos row is incomplete');
+      }
+      if (_status.text == 'published' && !_isRealMediaUrl(row.imageUrl)) {
+        throw const FormatException(
+            'published match_photos requires storage image_url');
+      }
+    }
   }
 
   void _syncMapRawJson() {
@@ -1891,6 +2133,9 @@ class _MapAuthoringEditor extends StatelessWidget {
   final VoidCallback onAreaDone;
   final ValueChanged<bool> onAdvancedChanged;
   final VoidCallback onCenterFromAnswer;
+  final VoidCallback onCopyCenterToAnswer;
+  final VoidCallback onAreaSimplify;
+  final VoidCallback onResetDefaults;
 
   const _MapAuthoringEditor({
     required this.type,
@@ -1918,6 +2163,9 @@ class _MapAuthoringEditor extends StatelessWidget {
     required this.onAreaDone,
     required this.onAdvancedChanged,
     required this.onCenterFromAnswer,
+    required this.onCopyCenterToAnswer,
+    required this.onAreaSimplify,
+    required this.onResetDefaults,
   });
 
   bool get _isArea => type == 'map_area';
@@ -1956,12 +2204,12 @@ class _MapAuthoringEditor extends StatelessWidget {
             children: [
               _MapNumberField(
                   controller: centerLatController,
-                  label: 'Центр lat',
+                  label: 'Центр карты lat',
                   width: 126,
                   onChanged: onChanged),
               _MapNumberField(
                   controller: centerLngController,
-                  label: 'Центр lng',
+                  label: 'Центр карты lng',
                   width: 126,
                   onChanged: onChanged),
               _MapNumberField(
@@ -1978,13 +2226,13 @@ class _MapAuthoringEditor extends StatelessWidget {
               if (_isArea)
                 _MapNumberField(
                     controller: areaCenterRadiusController,
-                    label: 'Центр, м',
+                    label: 'Допуск центра, м',
                     width: 122,
                     onChanged: onChanged),
               if (_isArea)
                 _MapNumberField(
                     controller: areaToleranceController,
-                    label: 'Допуск',
+                    label: 'Допуск площади',
                     width: 112,
                     onChanged: onChanged),
             ],
@@ -2141,6 +2389,27 @@ class _MapAuthoringEditor extends StatelessWidget {
             style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: AppTheme.accent)),
           ),
+          OutlinedButton.icon(
+            onPressed: onCopyCenterToAnswer,
+            icon: const Icon(Icons.my_location_outlined),
+            label: const ButtonLabel('Ответ из центра'),
+            style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent)),
+          ),
+          OutlinedButton.icon(
+            onPressed: areaPoints.length <= 30 ? null : onAreaSimplify,
+            icon: const Icon(Icons.compress_outlined),
+            label: const ButtonLabel('Упростить'),
+            style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent)),
+          ),
+          OutlinedButton.icon(
+            onPressed: onResetDefaults,
+            icon: const Icon(Icons.restart_alt_outlined),
+            label: const ButtonLabel('OSM default'),
+            style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent)),
+          ),
         ],
       );
     }
@@ -2152,6 +2421,20 @@ class _MapAuthoringEditor extends StatelessWidget {
           onPressed: pointAnswer == null ? null : onCenterFromAnswer,
           icon: const Icon(Icons.center_focus_strong),
           label: const ButtonLabel('Центр из точки'),
+          style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppTheme.accent)),
+        ),
+        OutlinedButton.icon(
+          onPressed: onCopyCenterToAnswer,
+          icon: const Icon(Icons.my_location_outlined),
+          label: const ButtonLabel('Ответ из центра'),
+          style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppTheme.accent)),
+        ),
+        OutlinedButton.icon(
+          onPressed: onResetDefaults,
+          icon: const Icon(Icons.restart_alt_outlined),
+          label: const ButtonLabel('OSM default'),
           style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.accent)),
         ),
@@ -2260,6 +2543,292 @@ class _JsonPreview extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MatchPhotosAuthoringEditor extends StatelessWidget {
+  final List<String> lines;
+  final bool published;
+  final int? uploadingIndex;
+  final ValueChanged<int> onUpload;
+  final ValueChanged<List<String>> onChanged;
+
+  const _MatchPhotosAuthoringEditor({
+    required this.lines,
+    required this.published,
+    required this.uploadingIndex,
+    required this.onUpload,
+    required this.onChanged,
+  });
+
+  List<_MatchPhotoLine> get _rows {
+    final rows = lines.map(_MatchPhotoLine.fromLine).toList();
+    return rows.isEmpty ? [_MatchPhotoLine.empty()] : rows;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows;
+    final hasUnsafeImage =
+        rows.any((row) => !_isRealMediaUrl(row.imageUrl) && !row.isBlank);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.32),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Фото-пары',
+                  style: GoogleFonts.lato(
+                    color: AppTheme.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _emit([
+                  ...rows.where((row) => !row.isBlank),
+                  _MatchPhotoLine.empty()
+                ]),
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: const ButtonLabel('Добавить'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Каждая карточка сохраняется как photo_id -> label_id. Для published нужен image_url; до загрузки фото оставляй draft.',
+            style: GoogleFonts.lato(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          if (published && hasUnsafeImage) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Published match_photos без storage image_url будет заблокирован при сохранении.',
+              style: GoogleFonts.lato(
+                color: AppTheme.error,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          ...rows.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+            return Padding(
+              padding:
+                  EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 12),
+              child: _MatchPhotoCard(
+                index: index,
+                row: row,
+                canRemove: rows.length > 1,
+                uploading: uploadingIndex == index,
+                onChanged: (next) => _replace(rows, index, next),
+                onUpload: () => onUpload(index),
+                onRemove: () => _remove(rows, index),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  void _replace(List<_MatchPhotoLine> rows, int index, _MatchPhotoLine row) {
+    final next = [...rows];
+    next[index] = row;
+    _emit(next);
+  }
+
+  void _remove(List<_MatchPhotoLine> rows, int index) {
+    final next = [...rows]..removeAt(index);
+    _emit(next.isEmpty ? [_MatchPhotoLine.empty()] : next);
+  }
+
+  void _emit(List<_MatchPhotoLine> rows) {
+    onChanged(rows.map((row) => row.toLine()).toList());
+  }
+}
+
+class _MatchPhotoCard extends StatelessWidget {
+  final int index;
+  final _MatchPhotoLine row;
+  final bool canRemove;
+  final bool uploading;
+  final ValueChanged<_MatchPhotoLine> onChanged;
+  final VoidCallback onUpload;
+  final VoidCallback onRemove;
+
+  const _MatchPhotoCard({
+    required this.index,
+    required this.row,
+    required this.canRemove,
+    required this.uploading,
+    required this.onChanged,
+    required this.onUpload,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(
+                      label: Text('photo_id: p${index + 1}',
+                          style: GoogleFonts.lato(color: AppTheme.textPrimary)),
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.4),
+                    ),
+                    Chip(
+                      label: Text('label_id: l${index + 1}',
+                          style: GoogleFonts.lato(color: AppTheme.textPrimary)),
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.4),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: canRemove ? onRemove : null,
+                icon: const Icon(Icons.delete_outline),
+                color: AppTheme.error,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _photoPreview(),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: uploading ? null : onUpload,
+            icon: uploading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.upload_file_outlined),
+            label: ButtonLabel(
+                uploading ? 'Загрузка...' : 'Загрузить / заменить фото'),
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            initialValue: row.imageUrl,
+            onChanged: (value) => onChanged(row.copyWith(imageUrl: value)),
+            style: GoogleFonts.lato(color: AppTheme.textPrimary),
+            decoration: _inputDecoration('image_url'),
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            initialValue: row.alt,
+            onChanged: (value) => onChanged(row.copyWith(alt: value)),
+            style: GoogleFonts.lato(color: AppTheme.textPrimary),
+            decoration: _inputDecoration('Alt / что на фото'),
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            initialValue: row.label,
+            onChanged: (value) => onChanged(row.copyWith(label: value)),
+            style: GoogleFonts.lato(color: AppTheme.textPrimary),
+            decoration: _inputDecoration('Подпись для сопоставления'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _photoPreview() {
+    final url = row.imageUrl.trim();
+    if (url.isEmpty) return _photoFallback(row.alt);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        url,
+        height: 120,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _photoFallback(row.alt),
+      ),
+    );
+  }
+
+  Widget _photoFallback(String alt) {
+    return Container(
+      height: 96,
+      width: double.infinity,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBg),
+      ),
+      child: Text(
+        alt.trim().isEmpty ? 'Изображение ещё не задано' : alt,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.lato(color: AppTheme.textSecondary),
+      ),
+    );
+  }
+}
+
+class _MatchPhotoLine {
+  final String imageUrl;
+  final String alt;
+  final String label;
+
+  const _MatchPhotoLine({
+    required this.imageUrl,
+    required this.alt,
+    required this.label,
+  });
+
+  factory _MatchPhotoLine.empty() =>
+      const _MatchPhotoLine(imageUrl: '', alt: '', label: '');
+
+  factory _MatchPhotoLine.fromLine(String line) {
+    final parts = line.split('|').map((part) => part.trim()).toList();
+    return _MatchPhotoLine(
+      imageUrl: parts.isNotEmpty ? parts[0] : '',
+      alt: parts.length > 1 ? parts[1] : '',
+      label: parts.length > 2 ? parts.sublist(2).join(' | ') : '',
+    );
+  }
+
+  bool get isBlank =>
+      imageUrl.trim().isEmpty && alt.trim().isEmpty && label.trim().isEmpty;
+
+  _MatchPhotoLine copyWith({String? imageUrl, String? alt, String? label}) {
+    return _MatchPhotoLine(
+      imageUrl: imageUrl ?? this.imageUrl,
+      alt: alt ?? this.alt,
+      label: label ?? this.label,
+    );
+  }
+
+  String toLine() => '$imageUrl | $alt | $label';
 }
 
 class _MapAreaStats {

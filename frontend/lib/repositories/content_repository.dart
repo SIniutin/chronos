@@ -20,7 +20,8 @@ class ContentRepository {
   final ProgressApi? progressApi;
   final bool allowFallback;
 
-  const ContentRepository(this.api, {this.progressApi, this.allowFallback = true});
+  const ContentRepository(this.api,
+      {this.progressApi, this.allowFallback = true});
 
   Future<CatalogSnapshot> loadCatalog() async {
     try {
@@ -42,14 +43,18 @@ class ContentRepository {
             continue;
           }
         }
-        final progressBySkill = progress?.skillsById ?? const <String, ProgressSkillDto>{};
-        final sections = (await api.listSections(course.id))..sort((a, b) => a.position.compareTo(b.position));
+        final progressBySkill =
+            progress?.skillsById ?? const <String, ProgressSkillDto>{};
+        final sections = (await api.listSections(course.id))
+          ..sort((a, b) => a.position.compareTo(b.position));
         for (var i = 0; i < sections.length; i++) {
           final section = sections[i];
           final sectionLessons = <Lesson>[];
-          final units = (await api.listUnits(section.id))..sort((a, b) => a.position.compareTo(b.position));
+          final units = (await api.listUnits(section.id))
+            ..sort((a, b) => a.position.compareTo(b.position));
           for (final unit in units) {
-            final skills = (await api.listSkills(unit.id))..sort((a, b) => a.position.compareTo(b.position));
+            final skills = (await api.listSkills(unit.id))
+              ..sort((a, b) => a.position.compareTo(b.position));
             for (final skill in skills) {
               final skillProgress = progressBySkill[skill.id];
               final status = skillProgress?.status ?? 'available';
@@ -74,6 +79,7 @@ class ContentRepository {
                 eraId: section.id,
                 facts: _factsFromChallenges(challenges),
                 quizQuestions: questions,
+                challengePreviews: _challengePreviews(challenges),
               ));
             }
           }
@@ -85,7 +91,8 @@ class ContentRepository {
               dateRange: course.title,
               emoji: _emoji(i),
               lessonsTotal: sectionLessons.length,
-              lessonsCompleted: sectionLessons.where((lesson) => lesson.isCompleted).length,
+              lessonsCompleted:
+                  sectionLessons.where((lesson) => lesson.isCompleted).length,
               color: _color(i),
             ));
           }
@@ -96,7 +103,10 @@ class ContentRepository {
       if (eras.isEmpty || lessons.isEmpty) {
         return _fallback();
       }
-      return CatalogSnapshot(courseIds: courses.map((course) => course.id).toList(), eras: eras, lessons: lessons);
+      return CatalogSnapshot(
+          courseIds: courses.map((course) => course.id).toList(),
+          eras: eras,
+          lessons: lessons);
     } catch (_) {
       return _fallback();
     }
@@ -122,20 +132,68 @@ class ContentRepository {
 
   List<String> _factsFromChallenges(List<ChallengeDto> challenges) {
     final facts = challenges
-        .map((challenge) => challenge.body.isNotEmpty ? challenge.body : challenge.explanation)
+        .map((challenge) =>
+            challenge.body.isNotEmpty ? challenge.body : challenge.explanation)
         .where((text) => text.trim().isNotEmpty)
         .take(5)
         .toList();
-    return facts.isEmpty ? const ['Материал появится после наполнения контента.'] : facts;
+    return facts.isEmpty
+        ? const ['Материал появится после наполнения контента.']
+        : facts;
   }
+
+  List<ChallengePreview> _challengePreviews(List<ChallengeDto> challenges) {
+    return challenges
+        .where((challenge) => challenge.type != 'theory')
+        .map((challenge) => ChallengePreview(
+              type: challenge.type,
+              prompt: challenge.prompt.isEmpty
+                  ? _typeLabel(challenge.type)
+                  : challenge.prompt,
+              description: _challengeDescription(challenge),
+              isInteractive: _isInteractive(challenge.type),
+            ))
+        .toList();
+  }
+
+  String _challengeDescription(ChallengeDto challenge) {
+    final tags = [
+      if (_isInteractive(challenge.type)) 'Интерактив',
+      _typeLabel(challenge.type),
+    ];
+    if (challenge.body.trim().isNotEmpty) {
+      tags.add(challenge.body.trim());
+    } else if (challenge.explanation.trim().isNotEmpty) {
+      tags.add(challenge.explanation.trim());
+    }
+    return tags.take(3).join(' · ');
+  }
+
+  bool _isInteractive(String type) =>
+      type == 'map_point' || type == 'map_area' || type == 'match_photos';
+
+  String _typeLabel(String type) => switch (type) {
+        'single_choice' => 'Один ответ',
+        'true_false' => 'Верно/неверно',
+        'fill_in_blank' => 'Пропуск',
+        'match_pairs' => 'Сопоставление',
+        'map_point' => 'Точка на карте',
+        'map_area' => 'Область на карте',
+        'match_photos' => 'Фото',
+        _ => type,
+      };
 
   List<String> _options(dynamic raw) {
     if (raw is List) {
-      return raw.map((item) {
-        if (item is String) return item;
-        if (item is Map && item['text'] is String) return item['text'] as String;
-        return item.toString();
-      }).where((text) => text.trim().isNotEmpty).toList();
+      return raw
+          .map((item) {
+            if (item is String) return item;
+            if (item is Map && item['text'] is String)
+              return item['text'] as String;
+            return item.toString();
+          })
+          .where((text) => text.trim().isNotEmpty)
+          .toList();
     }
     return const [];
   }
@@ -150,18 +208,22 @@ class ContentRepository {
         final byText = options.indexOf(answer);
         if (byText >= 0) return byText;
         final parsed = int.tryParse(answer);
-        if (parsed != null && parsed >= 0 && parsed < options.length) return parsed;
+        if (parsed != null && parsed >= 0 && parsed < options.length)
+          return parsed;
       }
     }
     return null;
   }
 
   String _difficulty(List<ChallengeDto> challenges) {
-    if (challenges.any((challenge) => challenge.difficulty == 'hard')) return 'Сложный';
-    if (challenges.any((challenge) => challenge.difficulty == 'medium')) return 'Средний';
+    if (challenges.any((challenge) => challenge.difficulty == 'hard'))
+      return 'Сложный';
+    if (challenges.any((challenge) => challenge.difficulty == 'medium'))
+      return 'Средний';
     return 'Лёгкий';
   }
 
   String _emoji(int index) => const ['👑', '💰', '✊', '⚙️', '📜'][index % 5];
-  String _color(int index) => const ['#E8A838', '#5C7AEA', '#E74C3C', '#2ECC71', '#F5C842'][index % 5];
+  String _color(int index) =>
+      const ['#E8A838', '#5C7AEA', '#E74C3C', '#2ECC71', '#F5C842'][index % 5];
 }

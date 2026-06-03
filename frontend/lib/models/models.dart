@@ -37,6 +37,7 @@ class Lesson {
   final String eraId;
   final List<String> facts;
   final List<QuizQuestion> quizQuestions;
+  final List<ChallengePreview> challengePreviews;
 
   const Lesson({
     required this.id,
@@ -53,6 +54,21 @@ class Lesson {
     required this.eraId,
     required this.facts,
     this.quizQuestions = const [],
+    this.challengePreviews = const [],
+  });
+}
+
+class ChallengePreview {
+  final String type;
+  final String prompt;
+  final String description;
+  final bool isInteractive;
+
+  const ChallengePreview({
+    required this.type,
+    required this.prompt,
+    required this.description,
+    required this.isInteractive,
   });
 }
 

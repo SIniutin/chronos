@@ -75,13 +75,14 @@ def main() -> int:
     added = enrich_seed(seed, raw, normalized)
     validate_seed(seed)
     after = count_challenges(seed)
+    media_stats = match_photos_stats(seed)
 
     if args.dry_run:
-        print(json.dumps({"before": before, "after": after, "would_add": added}, ensure_ascii=False, indent=2))
+        print(json.dumps({"before": before, "after": after, "would_add": added, "match_photos": media_stats}, ensure_ascii=False, indent=2))
         return 0
 
     seed_path.write_text(json.dumps(seed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"before": before, "after": after, "added": added}, ensure_ascii=False, indent=2))
+    print(json.dumps({"before": before, "after": after, "added": added, "match_photos": media_stats}, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -148,7 +149,7 @@ def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str,
                     merge_skill_content(skill, normalized_skill)
                     facts = [clean_text(item) for item in skill.get("facts", []) if clean_text(item)]
                 challenges = skill.setdefault("challenges", [])
-                publish_interactive_placeholders(challenges)
+                apply_interactive_publish_policy(challenges)
                 existing = {challenge.get("type") for challenge in challenges}
                 signatures = {challenge_signature(challenge) for challenge in challenges}
 
@@ -201,22 +202,42 @@ def enrich_seed(seed: dict[str, Any], raw: dict[str, Any], normalized: dict[str,
     return dict(added)
 
 
-def publish_interactive_placeholders(challenges: list[dict[str, Any]]) -> None:
+def apply_interactive_publish_policy(challenges: list[dict[str, Any]]) -> None:
     for challenge in challenges:
         if challenge.get("type") not in {"map_point", "map_area", "match_photos"}:
             continue
         tags = ensure_tags(challenge)
+        if challenge.get("type") == "match_photos":
+            if has_real_match_photos(challenge):
+                if challenge.get("status") in {"", None, "draft"} and "placeholder" not in tags and "needs_review" not in tags:
+                    challenge["status"] = "published"
+                continue
+            for tag in ("placeholder", "needs_review"):
+                if tag not in tags:
+                    tags.append(tag)
+            challenge["status"] = "draft"
+            continue
         if "placeholder" not in tags and ("needs_review" in tags or not has_real_interactive_asset(challenge)):
             tags.append("placeholder")
-        challenge["status"] = "published"
+        if challenge.get("status") in {"", None, "draft"}:
+            challenge["status"] = "published"
 
 
 def has_real_interactive_asset(challenge: dict[str, Any]) -> bool:
     if challenge.get("type") != "match_photos":
         return "needs_review" not in challenge.get("tags", [])
+    return has_real_match_photos(challenge)
+
+
+def has_real_match_photos(challenge: dict[str, Any]) -> bool:
     options = challenge.get("options")
     photos = options.get("photos", []) if isinstance(options, dict) else []
-    return bool(photos) and all(isinstance(photo, dict) and clean_text(photo.get("image_url")) for photo in photos)
+    return bool(photos) and all(isinstance(photo, dict) and is_real_media_url(photo.get("image_url")) for photo in photos)
+
+
+def is_real_media_url(value: Any) -> bool:
+    url = clean_text(value)
+    return url.startswith("http://") or url.startswith("https://") or url.startswith("/media/")
 
 
 def ensure_tags(challenge: dict[str, Any]) -> list[str]:
@@ -862,6 +883,36 @@ def normalize_positions(challenges: list[dict[str, Any]]) -> None:
 
 def count_challenges(seed: dict[str, Any]) -> int:
     return sum(len(skill.get("challenges", [])) for section in seed.get("sections", []) for unit in section.get("units", []) for skill in unit.get("skills", []))
+
+
+def match_photos_stats(seed: dict[str, Any]) -> dict[str, int]:
+    stats = Counter()
+    for section in seed.get("sections", []):
+        for unit in section.get("units", []):
+            for skill in unit.get("skills", []):
+                for challenge in skill.get("challenges", []):
+                    if challenge.get("type") != "match_photos":
+                        continue
+                    stats["total"] += 1
+                    status = str(challenge.get("status", ""))
+                    if status:
+                        stats[status] += 1
+                    tags = challenge.get("tags") if isinstance(challenge.get("tags"), list) else []
+                    if "placeholder" in tags:
+                        stats["placeholder"] += 1
+                    if "needs_review" in tags:
+                        stats["needs_review"] += 1
+                    if has_real_match_photos(challenge):
+                        stats["with_real_images"] += 1
+                        if status == "published":
+                            stats["published_real"] += 1
+                    else:
+                        stats["with_empty_images"] += 1
+                        if status == "draft":
+                            stats["draft_placeholders"] += 1
+                        if status == "published":
+                            stats["published_empty"] += 1
+    return dict(stats)
 
 
 def looks_like_fact(text: str) -> bool:

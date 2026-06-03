@@ -23,6 +23,8 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = SessionScope.of(context);
+    AppTheme.currentMode = session.themeMode;
     return FutureBuilder<_HomeData>(
       future: _loadHome(context),
       builder: (context, snapshot) {

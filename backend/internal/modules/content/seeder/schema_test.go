@@ -3,6 +3,7 @@ package seeder
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -146,10 +147,19 @@ func assertAnswersReferenceOptions(t *testing.T, skillTitle string, challenge Se
 		}
 		photoIDs := map[string]bool{}
 		placeholder := hasSeedTag(challenge, "placeholder")
+		needsReview := hasSeedTag(challenge, "needs_review")
 		labelIDs := map[string]bool{}
 		for _, photo := range options.Photos {
-			if photo.ID == "" || photo.Alt == "" || (!placeholder && photo.ImageURL == "") {
+			if photo.ID == "" || photo.Alt == "" {
 				t.Fatalf("skill %q challenge %q has incomplete photo %+v", skillTitle, challenge.Prompt, photo)
+			}
+			if !isRealMediaURL(photo.ImageURL) {
+				if challenge.Status == "published" {
+					t.Fatalf("skill %q challenge %q publishes non-storage photo %+v", skillTitle, challenge.Prompt, photo)
+				}
+				if !placeholder || !needsReview {
+					t.Fatalf("skill %q challenge %q draft photo placeholder lacks review tags %+v", skillTitle, challenge.Prompt, photo)
+				}
 			}
 			photoIDs[photo.ID] = true
 		}
@@ -226,6 +236,11 @@ func hasSeedTag(challenge SeedChallenge, tag string) bool {
 		}
 	}
 	return false
+}
+
+func isRealMediaURL(url string) bool {
+	url = strings.TrimSpace(url)
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "/media/")
 }
 
 func countSeed(seed SeedFile) (sections int, units int, skills int, challenges int) {

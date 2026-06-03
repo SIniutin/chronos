@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	crand "crypto/rand"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"time"
@@ -13,7 +14,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const defaultSessionLimit = 10
+const (
+	defaultSessionLimit = 7
+	maxSessionLimit     = 7
+)
 
 func (s *Service) StartSession(ctx context.Context, input learning_api.StartSessionInput) (learning_api.LessonSession, error) {
 	userID, skillID, limit, err := parseStartInput(input)
@@ -142,24 +146,40 @@ func (s *Service) pickSessionChallenges(ctx context.Context, userID domain.UserI
 			return nil, err
 		}
 		if len(picked) > 0 {
-			return picked, nil
+			challenges, err := s.challengesFromIDs(ctx, picked)
+			if err != nil {
+				return nil, err
+			}
+			selected := selectLearnerChallenges(challenges, limit, false)
+			out := make([]domain.ChallengeID, 0, len(selected))
+			for _, challenge := range selected {
+				out = append(out, domain.ChallengeID(challenge.ID))
+			}
+			return out, nil
 		}
 	}
 	challenges, err := s.content.ListPublishedChallenges(ctx, skillID)
 	if err != nil {
 		return nil, err
 	}
-	if len(challenges) > limit {
-		shuffleChallenges(challenges)
-		challenges = challenges[:limit]
-	} else {
-		shuffleChallenges(challenges)
-	}
+	challenges = selectLearnerChallenges(challenges, limit, true)
 	out := make([]domain.ChallengeID, 0, len(challenges))
 	for _, challenge := range challenges {
 		out = append(out, domain.ChallengeID(challenge.ID))
 	}
 	return out, nil
+}
+
+func (s *Service) challengesFromIDs(ctx context.Context, ids []domain.ChallengeID) ([]content_domain.Challenge, error) {
+	challenges := make([]content_domain.Challenge, 0, len(ids))
+	for _, id := range ids {
+		challenge, err := s.content.GetChallenge(ctx, content_domain.ChallengeID(id))
+		if err != nil {
+			return nil, err
+		}
+		challenges = append(challenges, challenge)
+	}
+	return challenges, nil
 }
 
 func (s *Service) calculateResult(ctx context.Context, sessionID domain.LessonSessionID) (domain.LessonSessionResult, error) {
@@ -214,6 +234,9 @@ func parseStartInput(input learning_api.StartSessionInput) (domain.UserID, conte
 	if limit <= 0 {
 		limit = defaultSessionLimit
 	}
+	if limit > maxSessionLimit {
+		limit = maxSessionLimit
+	}
 	return domain.UserID(userUUID), content_domain.SkillID(skillUUID), limit, nil
 }
 
@@ -238,4 +261,155 @@ func shuffleChallenges(challenges []content_domain.Challenge) {
 		j := int(n.Int64())
 		challenges[i], challenges[j] = challenges[j], challenges[i]
 	}
+}
+
+func selectLearnerChallenges(challenges []content_domain.Challenge, limit int, shuffle bool) []content_domain.Challenge {
+	if limit <= 0 || limit > maxSessionLimit {
+		limit = maxSessionLimit
+	}
+	eligible := make([]content_domain.Challenge, 0, len(challenges))
+	for _, challenge := range challenges {
+		if isLearnerVisibleChallenge(challenge) {
+			eligible = append(eligible, challenge)
+		}
+	}
+
+	theory := firstByType(eligible, content_domain.ChallengeTypeTheory)
+	regular := filterByTypes(eligible,
+		content_domain.ChallengeTypeSingleChoice,
+		content_domain.ChallengeTypeTrueFalse,
+		content_domain.ChallengeTypeFillBlank,
+		content_domain.ChallengeTypeMatchPairs,
+		content_domain.ChallengeTypeMultiple,
+		content_domain.ChallengeTypeTimeline,
+		content_domain.ChallengeTypeImage,
+		content_domain.ChallengeTypeQuote,
+		content_domain.ChallengeTypeMatchImage,
+	)
+	interactive := filterByTypes(eligible,
+		content_domain.ChallengeTypeMapPoint,
+		content_domain.ChallengeTypeMapArea,
+		content_domain.ChallengeTypeMatchPhotos,
+	)
+	if shuffle && len(regular) > 0 {
+		shuffleChallenges(regular)
+	}
+	if shuffle && len(interactive) > 0 {
+		shuffleChallenges(interactive)
+	}
+
+	out := make([]content_domain.Challenge, 0, limit)
+	if theory != nil && len(out) < limit {
+		out = append(out, *theory)
+	}
+	regularSlots := limit - len(out)
+	if len(interactive) > 0 && regularSlots > 1 {
+		regularSlots--
+	}
+	if regularSlots > 4 {
+		regularSlots = 4
+	}
+	for _, challenge := range regular {
+		if len(out) >= limit || regularSlots <= 0 {
+			break
+		}
+		out = append(out, challenge)
+		regularSlots--
+	}
+	if len(interactive) > 0 && len(out) < limit {
+		out = append(out, interactive[0])
+	}
+	for _, challenge := range regular {
+		if len(out) >= limit {
+			break
+		}
+		if containsChallenge(out, challenge.ID) {
+			continue
+		}
+		out = append(out, challenge)
+	}
+	return out
+}
+
+func isLearnerVisibleChallenge(challenge content_domain.Challenge) bool {
+	if !challenge.Status.IsPublished() {
+		return false
+	}
+	if hasAnyTag(challenge.Tags, "placeholder", "needs_review") {
+		return false
+	}
+	if challenge.Type == content_domain.ChallengeTypeMatchPhotos && hasEmptyPhotoURL(challenge.Options) {
+		return false
+	}
+	return true
+}
+
+func hasAnyTag(raw json.RawMessage, tags ...string) bool {
+	var values []string
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return false
+	}
+	wanted := map[string]bool{}
+	for _, tag := range tags {
+		wanted[tag] = true
+	}
+	for _, value := range values {
+		if wanted[value] {
+			return true
+		}
+	}
+	return false
+}
+
+func hasEmptyPhotoURL(raw json.RawMessage) bool {
+	var options struct {
+		Photos []struct {
+			ImageURL string `json:"image_url"`
+		} `json:"photos"`
+	}
+	if err := json.Unmarshal(raw, &options); err != nil {
+		return true
+	}
+	if len(options.Photos) == 0 {
+		return true
+	}
+	for _, photo := range options.Photos {
+		if photo.ImageURL == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func firstByType(challenges []content_domain.Challenge, challengeType content_domain.ChallengeType) *content_domain.Challenge {
+	for _, challenge := range challenges {
+		if challenge.Type == challengeType {
+			cp := challenge
+			return &cp
+		}
+	}
+	return nil
+}
+
+func filterByTypes(challenges []content_domain.Challenge, types ...content_domain.ChallengeType) []content_domain.Challenge {
+	allowed := map[content_domain.ChallengeType]bool{}
+	for _, challengeType := range types {
+		allowed[challengeType] = true
+	}
+	out := make([]content_domain.Challenge, 0, len(challenges))
+	for _, challenge := range challenges {
+		if allowed[challenge.Type] {
+			out = append(out, challenge)
+		}
+	}
+	return out
+}
+
+func containsChallenge(challenges []content_domain.Challenge, id content_domain.ChallengeID) bool {
+	for _, challenge := range challenges {
+		if challenge.ID == id {
+			return true
+		}
+	}
+	return false
 }
